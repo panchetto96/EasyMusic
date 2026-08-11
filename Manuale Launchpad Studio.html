@@ -156,6 +156,7 @@
   <h3>A) Dal menù Genere — il più veloce</h3>
   <ol><li>Scegli un genere dal menù <span class="btn">🎚️ Genere</span> in alto a sinistra.</li>
   <li>Premi <span class="btn primary">▶ Carica genere</span>: la griglia si riempie di loop coerenti tra loro (stessa tonalità e BPM), pronti da suonare.</li></ol>
+  <p>Se stavi già suonando qualcosa, il cambio genere non taglia di colpo: il master scende in dissolvenza (poco più di un secondo), cambia il contenuto, e risale — niente buco di silenzio a metà esibizione. Lo stesso vale aprendo un set salvato.</p>
   <h3>B) I tuoi file su un pad</h3>
   <ul>
     <li><b>Trascina</b> un file audio (WAV o MP3) dal computer direttamente sopra un pad.</li>
@@ -288,6 +289,7 @@
     <tr><td><b>Pitch</b> (−12…+12)</td><td>Intonazione in semitoni. Cambia anche la velocità del loop (senza preservazione del tempo).</td><td>Portare un basso in tonalità; variare un vocal chop.</td></tr>
     <tr><td><b>Choke</b> (— / 1–4)</td><td>I pad con lo stesso numero di choke si <b>tagliano a vicenda</b>: quando uno parte, l'altro si spegne.</td><td>Hi-hat aperto/chiuso sullo stesso gruppo; scelte "o l'uno o l'altro".</td></tr>
   </table>
+  <p><b>Taglio inizio/fine</b>: sotto ai controlli, la forma d'onda della clip selezionata con due cursori. Trascina "Taglio inizio" per saltare del silenzio o un attacco indesiderato in testa; trascina "fine" per accorciare la coda. Funziona sia sui loop (il punto di giro cambia, non solo l'attacco) sia sui one-shot.</p>
 
   <!-- 13 -->
   <h2 class="sec" id="registrare">13 · Registrare un brano</h2>
@@ -397,6 +399,8 @@
     <tr><td><kbd>Spazio</kbd></td><td>Play / Stop</td></tr>
     <tr><td><kbd>L</kbd></td><td>Carica un file sul pad selezionato</td></tr>
     <tr><td><kbd>R</kbd></td><td>Registra dal microfono sul pad selezionato</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Z</kbd></td><td>Annulla (o i pulsanti ↶ Annulla / ↷ Ripeti in "Suoni & Set")</td></tr>
+    <tr><td><kbd>Ctrl</kbd>+<kbd>Y</kbd> / <kbd>Ctrl</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd></td><td>Ripeti</td></tr>
   </table>
 
   <!-- 18 -->
@@ -453,7 +457,7 @@
     <li>La registrazione del brano è pulita ma internamente compressa (non PCM puro bit-per-bit).</li>
     <li>I banchi <b>B/C/D</b> non vengono salvati nel file .lpstudio (solo il banco attivo).</li>
     <li>Lo step sequencer è a <b>16 passi / 1 battuta</b> e gira solo con il transport in Play.</li>
-    <li>Non c'è <b>Undo</b> né salvataggio automatico: salva spesso il set.</li>
+    <li>L'app si autosalva da sola ogni tanto (e appena carichi un set o un genere), e alla riapertura ti chiede se vuoi ripristinare l'ultima sessione. C'è anche <b>Undo/Redo</b> (<kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd>, fino a 30 passaggi indietro) per gli sbagli mentre lavori — copre cosa c'è sui pad e i parametri di mix/tempo, non "cosa stava suonando" in quel momento. Salva comunque un set ogni tanto se vuoi un punto fermo a cui tornare.</li>
   </ul>
 
   <p style="margin-top:44px;color:var(--dim);font-size:13px">Launchpad Studio — manuale utente. Per i dettagli tecnici e per riprendere lo sviluppo vedi <code>SVILUPPO.md</code> nella stessa cartella.</p>
