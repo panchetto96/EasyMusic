@@ -816,7 +816,7 @@ function recallSnapshot(i){ const snap=snapshots[i]; if(!snap) return;
 const bankBtns=[];
 function updateBankUI(){ bankBtns.forEach((b,i)=>b.classList.toggle('on',i===activeBank)); }
 async function switchBank(i){ if(i===activeBank||i<0||i>=NBANKS) return;
-  await stopAllSmooth(0.6);   // dissolvenza piu' breve del cambio genere: qui i suoni sono gia' decodificati, non c'e' attesa di caricamento
+  await stopAllSmooth(1.0);   // dissolvenza un po' piu' breve del cambio genere (1.2s): qui i suoni sono gia' decodificati, non c'e' attesa di caricamento
   activeBank=i; clips=banks[i]; selectPad(selected.r,selected.c); recomputeTrackColors(); renderAll(); refreshAllLeds(); updateBankUI(); }
 function cycleBank(){ switchBank((activeBank+1)%NBANKS); }
 (function(){
