@@ -27,7 +27,7 @@
     document.getElementById('filter').value=filterVal; masterFilter.frequency.setTargetAtTime(20*Math.pow(1000,filterVal), audioCtx.currentTime, 0.02);
     const revWetVal=data.revWet!=null?data.revWet:0, revSizeVal=data.revSize!=null?data.revSize:2;
     document.getElementById('revWet').value=revWetVal; fxReverbSend.gain.value=revWetVal;
-    document.getElementById('revSize').value=revSizeVal; fxReverb.buffer=makeIR(revSizeVal,2.5);
+    document.getElementById('revSize').value=revSizeVal; setReverbSize(revSizeVal);
     const dlyWetVal=data.dlyWet!=null?data.dlyWet:0, dlyFbVal=data.dlyFb!=null?data.dlyFb:0.35, dlyTimeVal=data.dlyTime!=null?data.dlyTime:0.5;
     document.getElementById('dlyWet').value=dlyWetVal; fxDelaySend.gain.value=dlyWetVal;
     document.getElementById('dlyFb').value=dlyFbVal; fxDelayFb.gain.value=dlyFbVal;

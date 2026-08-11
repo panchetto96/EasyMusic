@@ -48,14 +48,18 @@ Un unico file: `<style>` + markup + **due `<script>`**:
 
 ### Grafo audio (Web Audio)
 ```
-per traccia: BufferSource -> Gain(fade) -> trackGains[c] -> masterGain -> masterFilter(lowpass)
-             -> masterLimiter(comp) -> destination
-                                    \-> fxDelaySend->delay(+feedback)->masterLimiter
-                                    \-> fxReverbSend->convolver->masterLimiter
+per traccia: BufferSource -> Gain(fade) -> trackGains[c] -> trackLow[c](lowshelf) -> trackHigh[c](highshelf) -> masterGain
+                                                                 \-> trackRevSend[c] -> fxReverb (comb+allpass)
+                                                                 \-> trackDlySend[c] -> fxDelay
+             masterGain -> masterFilter(lowpass) -> masterLimiter(comp) -> destination
+                                    \-> fxDelaySend->fxDelay(+feedback)->masterLimiter
+                                    \-> fxReverbSend->fxReverb(Freeverb: 8 comb + 4 allpass)->masterLimiter
                                     \-> recDest (MediaStreamDestination, per la registrazione)
 ```
 - **Phase-lock**: i loop partono con un offset calcolato da `startTime` così restano in fase anche lanciati a tempi diversi. `resyncAll` ri-ancora `startTime` e li fa ripartire da zero insieme.
 - **Limiter** sul master evita il clipping quando si sommano più loop.
+- **EQ e invii per traccia**: `trackLow`/`trackHigh` (shelf ±12dB, frequenze fisse 200Hz/4kHz) e `trackRevSend`/`trackDlySend` (0-1, si sommano al segnale che il master manda già a riverbero/delay) sono per **colonna**, non per clip — condivisi tra i banchi come `tracks[c].volume/muted/solo`. Controlli nel pannello, sotto le manopole master, scoperti sulla colonna selezionata (`selected.c`).
+- **Riverbero = Freeverb vero** (8 comb filter in parallelo + 4 allpass in serie, `buildReverbGraph`), non più un IR di rumore bianco. Il cursore "dim." resta 0.3–3.5 per compatibilità ma ora pilota il feedback dei comb (`setReverbSize`, mappato 0.28–0.95 — sotto 1 per restare stabile).
 
 ### MIDI (Launchpad Mini MK3, Programmer Mode)
 - SysEx Programmer: `F0 00 20 29 02 0D 0E 01 F7`; Live: `...0E 00 F7`.
@@ -70,7 +74,7 @@ per traccia: BufferSource -> Gain(fade) -> trackGains[c] -> masterGain -> master
 - **Nessun tasto fisico libero per il banco**: sul Mini MK3 griglia+riga superiore+colonna scene esauriscono tutti i controlli fisici — non c'è una "colonna laterale" separata come su Launchpad X/Pro. Per questo il cambio banco da pad è stato ottenuto sacrificando un tasto scena (nota 29), non aggiungendo un controllo nuovo.
 
 ## 5. Funzioni implementate (checklist)
-Connessione/LED, auto-detect porta, Test LED, Reset device (Live). Griglia 8×8 con drag&drop. Mixer per traccia (volume/M/S/stop). Master + filtro passa-basso + **delay** + **riverbero** + limiter. Transport: Play/Stop, BPM, **Tap tempo**, **Sync BPM** (time-stretch a resampling), quantizzazione (Subito/Movimento/Battuta/Frase), metronomo, **Pre-count**. Modalità pad **Loop/One-shot/Gate** — **default sempre Loop per ogni pad, su tutti i suoni** (jukebox, set, file trascinati): nessuna euristica indovina la modalità dal nome del file, one-shot/gate solo se scelti esplicitamente dall'utente (o salvati così in un `.lpstudio`). Scelta di design voluta: per uno strumento da live-looping la prevedibilità conta più della comodità di un auto-detect. **Scene launch** (righe) + **Re-sync** + Stop tutto. **Preset/snapshot** (8). **Banking** (4 banchi) — cambio banco anche dal pad fisico (nota scena 29, ciclico A→B→C→D→A…), non solo da schermo. **Step sequencer** (16 step per pad). Per-clip: **Reverse, Gain, Pitch, Choke group**. Registrazione **microfono→pad** e **brano→WAV/MP3** (MediaRecorder + encode; MP3 via lamejs non bloccante). Salva/Apri **.lpstudio**. **Colore per categoria**: al caricamento di un genere o di un set, `recomputeTrackColors()` deduce dal nome dei clip (prefisso senza il numero finale, es. "Drums" da "Drums_07") quali colonne sono lo stesso tipo di strumento e gli assegna lo stesso colore (pad + LED Launchpad); colonne vuote o non riconoscibili restano ciascuna col proprio colore. Non scatta sui pad caricati a mano trascinando un file (nessuna categoria nota per confrontarli). **Trim per clip**: cursori Inizio/Fine + forma d'onda (canvas, min/max per pixel) sul pad selezionato; usa `loopStart`/`loopEnd` nativi di `AudioBufferSourceNode` per loop/gate e `start(when, offset, duration)` per one-shot/step; persistito in `.lpstudio` e nell'autosave (`trimStart`/`trimEnd` in secondi). **Transizione morbida**: caricare un genere o un set non ferma più di colpo (`stopAllSmooth`, dissolvenza del master ~1.2s invece di `stopAll()` secco). **Autosave** (IndexedDB, non localStorage — l'audio supera di gran lunga i ~5-10MB che localStorage reggerebbe): salvataggio periodico (ogni 20s se `audioCtx` esiste) più esplicito dopo apertura set/genere; salva **tutti e 4 i banchi** (a differenza di `.lpstudio` che salva solo l'attivo); al riavvio chiede conferma prima di ripristinare.
+Connessione/LED, auto-detect porta, Test LED, Reset device (Live). Griglia 8×8 con drag&drop. Mixer per traccia (volume/M/S/stop). Master + filtro passa-basso + **delay** + **riverbero** + limiter. Transport: Play/Stop, BPM, **Tap tempo**, **Sync BPM** (time-stretch a resampling), quantizzazione (Subito/Movimento/Battuta/Frase), metronomo, **Pre-count**. Modalità pad **Loop/One-shot/Gate** — **default sempre Loop per ogni pad, su tutti i suoni** (jukebox, set, file trascinati): nessuna euristica indovina la modalità dal nome del file, one-shot/gate solo se scelti esplicitamente dall'utente (o salvati così in un `.lpstudio`). Scelta di design voluta: per uno strumento da live-looping la prevedibilità conta più della comodità di un auto-detect. **Scene launch** (righe) + **Re-sync** + Stop tutto. **Preset/snapshot** (8). **Banking** (4 banchi) — cambio banco anche dal pad fisico (nota scena 29, ciclico A→B→C→D→A…), non solo da schermo. **Step sequencer** (16 step per pad). Per-clip: **Reverse, Gain, Pitch, Choke group**. Registrazione **microfono→pad** e **brano→WAV/MP3** (MediaRecorder + encode; MP3 via lamejs non bloccante). Salva/Apri **.lpstudio**. **Colore per categoria**: al caricamento di un genere o di un set, `recomputeTrackColors()` deduce dal nome dei clip (prefisso senza il numero finale, es. "Drums" da "Drums_07") quali colonne sono lo stesso tipo di strumento e gli assegna lo stesso colore (pad + LED Launchpad); colonne vuote o non riconoscibili restano ciascuna col proprio colore. Non scatta sui pad caricati a mano trascinando un file (nessuna categoria nota per confrontarli). **Trim per clip**: cursori Inizio/Fine + forma d'onda (canvas, min/max per pixel) sul pad selezionato; usa `loopStart`/`loopEnd` nativi di `AudioBufferSourceNode` per loop/gate e `start(when, offset, duration)` per one-shot/step; persistito in `.lpstudio` e nell'autosave (`trimStart`/`trimEnd` in secondi). **Transizione morbida**: caricare un genere o un set non ferma più di colpo (`stopAllSmooth`, dissolvenza del master ~1.2s invece di `stopAll()` secco). **Autosave** (IndexedDB, non localStorage — l'audio supera di gran lunga i ~5-10MB che localStorage reggerebbe): salvataggio periodico (ogni 20s se `audioCtx` esiste) più esplicito dopo apertura set/genere; salva **tutti e 4 i banchi**; al riavvio chiede conferma prima di ripristinare. Indicatore di stato ("Autosave: salvato alle HH:MM:SS" o avviso se fallisce) + pulsante **🗑️ Cancella autosave**. **Undo copre anche BPM/Battute/Quantizza/Sync BPM/tempo Delay** (non solo griglia e mix), con cattura "a inizio modifica" (focus/pointerdown) invece che per ogni singolo tasto/trascinamento. **Salva/Apri set multi-banco**: `.lpstudio` ora salva e ripristina tutti e 4 i banchi (formato v2), retrocompatibile con i vecchi file a banco singolo (v1). **EQ e invii per traccia**: shelf bassi/alti ±12dB + invio indipendente a riverbero/delay, per colonna, condiviso tra i banchi. **Copia/incolla impostazioni pad** (📋/📥): trasferisce modo/gain/pitch/choke/trim/reverse tra pad, mai l'audio. **Riverbero vero** (Freeverb: 8 comb + 4 allpass) al posto del rumore bianco filtrato.
 
 ## 6. Build / assemblaggio (IMPORTANTE per riprendere)
 La pipeline è **completa e dentro `_sorgente/`**: `assemble.py` rigenera `Launchpad Studio.html` **identico al byte** (verificato con `cmp` — vedi nota sotto). Comando:
@@ -90,29 +94,40 @@ Regola pratica: **modifica `launchpad-studio.html`** (logica app) o `genre_ui.js
 ⚠️ Nessun clip del jukebox ha `mode` impostato nei dati (né in `genres.json` né nei `.lpstudio`): partono tutti **Loop** per default di codice (vedi §5). Questo vale anche per gli "Extra_01..08" (T7) di **LoFi · Japanese** — che nel pacchetto Novation sono la colonna equivalente a "FX ..." degli altri generi (texture/atmosfera con riverbero registrato nel file) — e restano volutamente in loop come tutto il resto: è così che li vuole l'utente, non un difetto da correggere. Se in futuro si rigenera `genres.json` da zero, **non** reintrodurre un'euristica automatica sul nome del file per decidere la modalità.
 
 ## 7. Formato .lpstudio (set)
-JSON: `{version, bpm, bars, quantMode, phraseBars?, master, filter?, revWet?, revSize?, dlyWet?, dlyFb?, dlyTime?, snapshots, tracks:[{volume,muted,solo}], clips:[{r,c,name,mime,mode,reversed,gain,pitch,choke,steps,data(base64 audio)}]}`. Il caricamento ripristina master/volumi traccia, filtro e FX (reverb/delay) esattamente come salvati (i campi `?` sono opzionali, per compatibilità con set salvati da versioni precedenti: se assenti si usano i default di fabbrica). `quantMode` viene comunque forzato a `'off'` al caricamento — scelta intenzionale per ripartire subito in fase, non in coda. Salva solo il **banco attivo**.
+**Versione 2 (attuale)**: `{version:2, bpm, bars, quantMode, phraseBars?, activeBank, master, filter?, revWet?, revSize?, dlyWet?, dlyFb?, dlyTime?, snapshots, tracks:[{volume,muted,solo,low?,high?,revSend?,dlySend?}], banks:[[clip,...] x4]}` — ogni elemento di `banks` è l'array di clip di quel banco, stessa forma di prima (`{r,c,name,mime,mode,reversed,gain,pitch,choke,steps,trimStart?,trimEnd?,data(base64 audio)}`). Salva e ripristina **tutti e 4 i banchi**, non solo l'attivo.
+
+**Versione 1 (retrocompatibilità)**: file vecchi con `clips:[...]` invece di `banks` si aprono ancora — `Apri set` rileva l'assenza di `data.banks` e ricade sul comportamento storico (un solo banco: quello attivo al momento dell'apertura; gli altri 3 restano intatti, non vengono toccati).
+
+Il caricamento ripristina master/volumi traccia/EQ-invii per traccia, filtro e FX (reverb/delay) esattamente come salvati (i campi `?` sono opzionali: se assenti si usano i default di fabbrica). `quantMode` viene comunque forzato a `'off'` al caricamento — scelta intenzionale per ripartire subito in fase, non in coda.
 
 ## 8. Limiti noti
 - Audio jukebox **compresso** (Opus). Qualità piena solo caricando i WAV originali o i set FLAC PRO.
 - **Time-stretch** = resampling (cambia intonazione), non pitch-preserving.
 - Registrazione via **MediaRecorder** = internamente Opus (pulita ma non PCM bit-perfect). L'AudioWorklet PCM funziona solo via http/localhost, non da `file://`.
-- **Banchi B/C/D** non salvati nel .lpstudio (solo l'attivo) — ma **sono** salvati nell'autosave IndexedDB (vedi §5).
+- **Banchi B/C/D**: salvati sia nell'autosave sia in `.lpstudio` (formato v2, vedi §7).
 - **Step sequencer**: 16 step / 1 battuta, parte solo con transport in Play.
-- **Autosave** presente (IndexedDB, ogni 20s + su apertura set/genere) **e Undo/Redo** (Ctrl+Z/Ctrl+Y o i pulsanti, 30 livelli, pila in memoria — vedi §5): insieme coprono sia il crash/chiusura accidentale sia l'errore mentre lavori. L'Undo non registra la riproduzione/cosa sta suonando in quel momento, solo il contenuto della griglia e i parametri di mix/tempo/FX.
+- **Autosave** presente (IndexedDB, ogni 20s + su apertura set/genere, con indicatore di stato e pulsante di cancellazione) **e Undo/Redo** (Ctrl+Z/Ctrl+Y o i pulsanti, 30 livelli, pila in memoria — vedi §5): insieme coprono sia il crash/chiusura accidentale sia l'errore mentre lavori. L'Undo non registra la riproduzione/cosa sta suonando in quel momento, solo il contenuto della griglia e i parametri di mix/tempo/FX. Tra un autosave esplicito e l'altro (fuori da apri-set/genere) c'è comunque una finestra fino a 20s in cui un crash può perdere l'ultima modifica — non c'è un trigger esplicito su ogni singola azione (carica pad, gain, sequencer, ecc.), solo il timer periodico.
 - Due file da tenere allineati (sorgente + generato) tramite lo script di assemblaggio.
 - **Build risolta:** `_sorgente/assemble.py` + `genres.json` + `genre_ui.js` sono presenti e rigenerano `Launchpad Studio.html` **identico al byte** (verificato con `cmp`). Non serve più tenere allineati a mano sorgente e file generato: si edita `_sorgente/` e si lancia `assemble.py` (vedi §6). Gli script che generano `genres.json` dai loop Novation grezzi (`build_parts.py` ecc.) non sono conservati, ma non servono per lavorare sull'app perché `genres.json` è già presente (vedi §6, "Rigenerare i dati dei generi").
-- Il "riverbero" è rumore bianco filtrato (`makeIR`, inviluppo esponenziale casuale), non un IR reale né un algoritmo tipo Freeverb: cambia timbro ad ogni regolazione della dimensione e non è riproducibile.
+- Il riverbero è ora un **Freeverb vero** (8 comb + 4 allpass), non più rumore bianco filtrato — vedi §4. Resta comunque un algoritmo "da manuale" con parametri fissi (frequenza di damping, tuning dei comb): niente pre-delay separato né controllo di damping esposto in UI.
+- **EQ/invii per traccia** sono per colonna (condivisi tra banchi), non per singolo clip — se serve un timbro diverso per due suoni sulla stessa colonna, oggi non si può.
+- Nessuna copia dell'audio tra pad: **📋/📥 Copia impostazioni** trasferisce solo modo/gain/pitch/choke/trim/reverse, mai il suono stesso.
 - **Legale**: i loop Novation NON sono redistribuibili in un software venduto — per vendere l'app va spedita **senza suoni** (o con suoni licenziati per software). "Launchpad"/"Ableton" sono marchi: serve un nome proprio. lamejs è LGPL (attribuzione).
 
 ## 9. Backlog (prossimi passi consigliati)
 
 1. ~~Auto-save + Undo~~ — **fatto** (IndexedDB + stack in memoria, vedi §5/§8).
 2. ~~Start/trim per clip con forma d'onda~~ — **fatto** (vedi §5).
-3. Salvataggio **multi-banco** nel `.lpstudio` — parzialmente coperto: l'**autosave** salva già tutti e 4 i banchi, ma il file `.lpstudio` scaricabile continua a salvare solo il banco attivo.
-4. **MIDI clock** sync in/out.
-5. Consolidare in un **solo sorgente** (eliminare la duplicazione sorgente/generato, es. caricando i generi da file esterni con un mini-server opzionale).
-6. Migrare la registrazione ad **AudioWorklet** quando servito via http (lossless PCM).
-7. Packaging (Electron/PWA) se si vuole distribuire.
+3. ~~Salvataggio multi-banco nel `.lpstudio`~~ — **fatto** (formato v2, vedi §7).
+4. ~~EQ/effetti per traccia~~ — **fatto** (shelf + invii riverbero/delay per colonna, vedi §4/§5).
+5. ~~Riverbero algoritmico vero~~ — **fatto** (Freeverb, vedi §4/§8).
+6. ~~Copia/incolla impostazioni tra pad~~ — **fatto** (vedi §5).
+7. **MIDI clock** sync in/out.
+8. Consolidare in un **solo sorgente** (eliminare la duplicazione sorgente/generato, es. caricando i generi da file esterni con un mini-server opzionale).
+9. Migrare la registrazione ad **AudioWorklet** quando servito via http (lossless PCM).
+10. Packaging (Electron/PWA) se si vuole distribuire.
+11. **EQ/effetti per singolo clip** (oggi sono per traccia/colonna, condivisi tra i pad della stessa colonna).
+12. Autosave con trigger su ogni azione (oggi: esplicito solo su apri-set/genere, altrimenti timer a 20s — vedi §8).
 
 ## 10. Come riprendere in 5 minuti
 1. Apri `_sorgente/launchpad-studio.html` in un editor: è l'app completa e leggibile.

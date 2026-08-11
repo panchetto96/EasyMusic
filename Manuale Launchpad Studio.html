@@ -251,6 +251,8 @@
     <tr><td><b>🌫️ Riverbero</b> + <b>dim.</b></td><td>Quantità di riverbero (wet, 0–0.8) e dimensione dell'ambiente (dim., piccola→grande).</td><td>Poco riverbero su voci/melodie dà aria senza impastare.</td></tr>
     <tr><td><b>⏩ Delay</b> + tempo + <b>fb</b></td><td>Quantità (wet), tempo dell'eco sincronizzato al BPM (1/4, 1/8., 1/8, 1/16) e feedback (fb = quante ripetizioni, 0–0.85).</td><td>1/8 con fb medio è il "dub delay" classico.</td></tr>
   </table>
+  <h3>EQ e invii per traccia</h3>
+  <p>Riga "Traccia T…", subito sotto quella del Delay — agisce sulla <b>colonna selezionata</b> (clicca un pad per cambiarla). <b>Bassi</b>/<b>Alti</b> sono uno shelf da −12 a +12 dB (taglia o esalta la parte bassa/alta di quella sola traccia); <b>→Rev</b>/<b>→Dly</b> mandano quella traccia, e solo quella, dentro il riverbero/delay condivisi — utile per dare aria solo alla melodia senza impastare la batteria, anche con il riverbero master a zero.</p>
 
   <!-- 10 -->
   <h2 class="sec" id="scene">10 · Scene, Preset, Banchi</h2>
@@ -291,6 +293,7 @@
     <tr><td><b>Choke</b> (— / 1–4)</td><td>I pad con lo stesso numero di choke si <b>tagliano a vicenda</b>: quando uno parte, l'altro si spegne.</td><td>Hi-hat aperto/chiuso sullo stesso gruppo; scelte "o l'uno o l'altro".</td></tr>
   </table>
   <p><b>Taglio inizio/fine</b>: sotto ai controlli, la forma d'onda della clip selezionata con due cursori. Trascina "Taglio inizio" per saltare del silenzio o un attacco indesiderato in testa; trascina "fine" per accorciare la coda. Funziona sia sui loop (il punto di giro cambia, non solo l'attacco) sia sui one-shot.</p>
+  <p><b>📋 Copia impostazioni</b> / <b>📥 Incolla impostazioni</b>: copia modo/gain/pitch/choke/taglio/reverse dal pad selezionato, poi selezioni un altro pad e incolli — <b>l'audio non si tocca</b>, solo queste impostazioni. Comodo per uniformare rapidamente più pad senza rifare ogni cursore a mano.</p>
 
   <!-- 13 -->
   <h2 class="sec" id="registrare">13 · Registrare un brano</h2>
@@ -306,8 +309,8 @@
   <!-- 14 -->
   <h2 class="sec" id="set">14 · Salvare / aprire un set</h2>
   <ul>
-    <li><span class="btn">💾 Salva set</span>: scarica un file <code>.lpstudio</code> che contiene <b>tutto</b> del banco attivo — suoni, modalità dei pad, gain/pitch/choke, pattern dello step sequencer, preset e impostazioni di tempo/effetti.</li>
-    <li><span class="btn">📂 Apri set</span>: ricarica un <code>.lpstudio</code> e ritrovi la sessione com'era, banco attivo incluso. Unica eccezione voluta: la quantizzazione del lancio torna sempre su "Subito", così il set riparte subito in fase invece che in coda su un movimento che potrebbe non arrivare mai.</li>
+    <li><span class="btn">💾 Salva set</span>: scarica un file <code>.lpstudio</code> che contiene <b>tutto e tutti e 4 i banchi</b> — suoni, modalità dei pad, gain/pitch/choke/taglio, EQ e invii per traccia, pattern dello step sequencer, preset e impostazioni di tempo/effetti. Un file vecchio (salvato prima di questo aggiornamento) resta apribile: aveva solo un banco, e riaprendolo tocca solo quello attivo lasciando gli altri tre come sono.</li>
+    <li><span class="btn">📂 Apri set</span>: ricarica un <code>.lpstudio</code> e ritrovi la sessione com'era, tutti i banchi inclusi. Unica eccezione voluta: la quantizzazione del lancio torna sempre su "Subito", così il set riparte subito in fase invece che in coda su un movimento che potrebbe non arrivare mai.</li>
   </ul>
   <div class="note">I set pronti nella cartella <b>Launchpad Sets</b> hanno qualità audio superiore a quella dei generi incorporati: caricali da qui quando vuoi il suono migliore.</div>
 
@@ -459,9 +462,9 @@
     <li>Audio dei generi incorporati <b>compresso</b> (per stare in un file solo): per la qualità piena carica i set dalla cartella <b>Launchpad Sets</b> o i tuoi WAV originali.</li>
     <li><b>Sync BPM</b> è un time-stretch "da giradischi": fuori dal tempo originale cambia un po' l'intonazione.</li>
     <li>La registrazione del brano è pulita ma internamente compressa (non PCM puro bit-per-bit).</li>
-    <li>I banchi <b>B/C/D</b> non vengono salvati nel file .lpstudio (solo il banco attivo).</li>
     <li>Lo step sequencer è a <b>16 passi / 1 battuta</b> e gira solo con il transport in Play.</li>
-    <li>L'app si autosalva da sola ogni tanto (e appena carichi un set o un genere), e alla riapertura ti chiede se vuoi ripristinare l'ultima sessione. C'è anche <b>Undo/Redo</b> (<kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd>, fino a 30 passaggi indietro) per gli sbagli mentre lavori — copre cosa c'è sui pad e i parametri di mix/tempo, non "cosa stava suonando" in quel momento. Salva comunque un set ogni tanto se vuoi un punto fermo a cui tornare.</li>
+    <li>L'app si autosalva da sola ogni tanto (e appena carichi un set o un genere — guarda l'indicatore "Autosave" sotto Salva/Apri set, con un pulsante per cancellarlo), e alla riapertura ti chiede se vuoi ripristinare l'ultima sessione. C'è anche <b>Undo/Redo</b> (<kbd>Ctrl</kbd>+<kbd>Z</kbd> / <kbd>Ctrl</kbd>+<kbd>Y</kbd>, fino a 30 passaggi indietro) per gli sbagli mentre lavori — copre cosa c'è sui pad e i parametri di mix/tempo, non "cosa stava suonando" in quel momento. Tra un salvataggio automatico e l'altro (fino a 20 secondi, se non hai appena aperto un set/genere) un crash può comunque perdere l'ultimissima modifica. Salva comunque un set ogni tanto se vuoi un punto fermo a cui tornare.</li>
+    <li>L'EQ (bassi/alti) e gli invii a riverbero/delay sono per <b>traccia</b> (colonna intera), non per singolo pad: se vuoi timbri diversi per due suoni della stessa colonna, oggi non è possibile.</li>
   </ul>
 
   <p style="margin-top:44px;color:var(--dim);font-size:13px">Launchpad Studio — manuale utente. Per i dettagli tecnici e per riprendere lo sviluppo vedi <code>SVILUPPO.md</code> nella stessa cartella.</p>
