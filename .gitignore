@@ -1,0 +1,9 @@
+.claude/settings.local.json
+
+# File pesanti / generati / dati campione: restano solo in locale.
+# Si rigenerano da _sorgente/ con assemble.py (vedi SVILUPPO.md §6).
+Launchpad Studio.html
+_sorgente/genres.json
+Launchpad Sets/
+_Archivio/
+Registrazioni/

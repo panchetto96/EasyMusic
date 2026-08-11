@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Manuale — Launchpad Studio</title>
+<style>
+  :root{--bg:#0f1115;--panel:#181b22;--panel2:#20242e;--line:#2c313d;--txt:#e8ebf1;--dim:#8b93a4;--accent:#4ea1ff;--green:#39d98a;--yellow:#ffd23f;--red:#ff5c5c;}
+  *{box-sizing:border-box}
+  html{scroll-behavior:smooth}
+  body{margin:0;background:var(--bg);color:var(--txt);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;line-height:1.65}
+  .layout{display:flex;align-items:flex-start}
+  nav{position:sticky;top:0;height:100vh;overflow-y:auto;width:300px;min-width:300px;background:var(--panel);border-right:1px solid var(--line);padding:20px 16px}
+  nav h2{font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--dim);margin:0 0 10px}
+  nav a{display:block;color:var(--txt);text-decoration:none;font-size:13.5px;padding:5px 8px;border-radius:6px;margin-bottom:1px}
+  nav a:hover{background:var(--panel2)}
+  nav a.sub{padding-left:22px;color:var(--dim);font-size:12.5px}
+  nav .grp{margin-top:12px}
+  main{flex:1;max-width:920px;margin:0 auto;padding:34px 46px 140px}
+  h1{font-size:31px;margin:0 0 6px}
+  .lead{color:var(--dim);font-size:15px;margin-bottom:26px}
+  h2.sec{font-size:23px;margin:50px 0 12px;padding-top:14px;border-top:1px solid var(--line)}
+  h3{font-size:16.5px;margin:24px 0 6px;color:#cfe0ff}
+  h4{font-size:14px;margin:16px 0 4px;color:#a9c6ff;text-transform:uppercase;letter-spacing:.4px}
+  p{margin:8px 0}
+  ol,ul{margin:8px 0 8px 4px;padding-left:22px}
+  li{margin:6px 0}
+  code,kbd{background:var(--panel2);border:1px solid var(--line);border-radius:5px;padding:1px 6px;font-size:13px}
+  kbd{box-shadow:0 1px 0 var(--line)}
+  .btn{display:inline-block;background:var(--panel2);border:1px solid var(--line);border-radius:6px;padding:2px 9px;font-size:13px;white-space:nowrap}
+  .btn.primary{background:var(--accent);border-color:var(--accent);color:#04101f;font-weight:600}
+  .btn.rec{background:var(--red);border-color:var(--red);color:#1a0505;font-weight:600}
+  .tip{background:#12241c;border:1px solid #1f5a3f;border-radius:10px;padding:12px 14px;margin:14px 0;font-size:14px}
+  .warn{background:#2a2213;border:1px solid #6b5a1f;color:#ffe08a;border-radius:10px;padding:12px 14px;margin:14px 0;font-size:14px}
+  .note{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin:14px 0;font-size:14px;color:var(--dim)}
+  .steps{counter-reset:s;list-style:none;padding-left:0}
+  .steps>li{position:relative;padding:2px 0 10px 42px;margin:0}
+  .steps>li::before{counter-increment:s;content:counter(s);position:absolute;left:0;top:0;width:28px;height:28px;border-radius:50%;background:var(--accent);color:#04101f;font-weight:700;display:flex;align-items:center;justify-content:center;font-size:14px}
+  .steps>li:not(:last-child)::after{content:"";position:absolute;left:13px;top:30px;bottom:-2px;width:2px;background:var(--line)}
+  table{border-collapse:collapse;width:100%;margin:12px 0;font-size:13.5px}
+  th,td{border:1px solid var(--line);padding:7px 10px;text-align:left;vertical-align:top}
+  th{background:var(--panel2)}
+  td code{white-space:nowrap}
+  .frame{border:1px solid var(--line);border-radius:12px;overflow:hidden;margin:16px 0;background:#000}
+  .frame iframe{width:100%;height:780px;border:0;display:block}
+  .cap{color:var(--dim);font-size:12.5px;margin:-8px 0 18px}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;margin:14px 0}
+  .card{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px 14px}
+  .card h4{margin-top:0}
+  .swatch{display:inline-block;width:12px;height:12px;border-radius:3px;vertical-align:middle;margin-right:6px}
+  b.k{color:#fff}
+  .toc-top a{color:var(--accent);text-decoration:none}
+  @media(max-width:820px){nav{display:none}.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="layout">
+<nav>
+  <h2>Indice</h2>
+  <a href="#intro">1 · Introduzione e requisiti</a>
+  <a href="#quickstart">2 · Guida rapida (5 minuti)</a>
+  <a href="#connessione">3 · Collegare il Launchpad</a>
+  <a href="#panoramica">4 · Panoramica interfaccia</a>
+  <a href="#suoni">5 · Caricare i suoni</a>
+  <a href="#griglia">6 · La griglia e i pad</a>
+  <a href="#modalita">7 · Modalità pad</a>
+  <a href="#tempo">8 · Suonare a tempo</a>
+  <a href="#mixer">9 · Mixer, master ed effetti</a>
+  <a href="#scene">10 · Scene, Preset, Banchi</a>
+  <a href="#seq">11 · Step sequencer</a>
+  <a href="#clip">12 · Editing per clip</a>
+  <a href="#registrare">13 · Registrare un brano</a>
+  <a href="#set">14 · Salvare / aprire un set</a>
+  <div class="grp"></div>
+  <a href="#workflow">15 · Esempi di workflow</a>
+  <a href="#riferimento">16 · Riferimento controlli</a>
+  <a href="#scorciatoie">17 · Scorciatoie tastiera</a>
+  <a href="#hardware">18 · Launchpad fisico</a>
+  <a href="#faq">19 · Problemi comuni</a>
+  <a href="#glossario">20 · Glossario</a>
+  <a href="#limiti">21 · Limiti noti</a>
+</nav>
+<main>
+  <h1>🎛️ Launchpad Studio — Manuale utente</h1>
+  <div class="lead">Guida completa passo-passo a ogni funzione, cursore e pulsante, con tutorial, esempi di flusso e riferimento rapido. Consiglio: tieni questo manuale e l'app affiancati su due finestre.</div>
+
+  <!-- 1 -->
+  <h2 class="sec" id="intro">1 · Introduzione e requisiti</h2>
+  <p>Launchpad Studio trasforma il tuo <b>Novation Launchpad Mini MK3</b> in uno strumento per suonare loop dal vivo, in stile Ableton Session View ma semplificato. Ogni pad contiene un loop o un campione; li lanci col Launchpad (o cliccando a schermo), partono <b>a tempo e in fase</b> tra loro, li combini in scene, li registri. Include un "jukebox" con generi già pronti.</p>
+  <p>Il modello mentale è semplice: <b>le colonne sono strumenti</b> (T1…T8: batteria, basso, accordi…), <b>le righe sono scene</b> (variazioni dello stesso pezzo). In ogni colonna suona una clip alla volta; lanciando un'altra clip della stessa colonna la prima si ferma.</p>
+  <h3>Cosa ti serve</h3>
+  <ul>
+    <li>Un browser <b class="k">Google Chrome</b> o <b class="k">Microsoft Edge</b> aggiornato. Serve <b>Web MIDI</b>, che <b>Safari e Firefox non supportano</b>: con quelli l'app funziona a schermo ma il Launchpad fisico non si collega.</li>
+    <li>Il <b>Launchpad Mini MK3</b> collegato via USB (per suonare a schermo col mouse non serve).</li>
+    <li>Prima di aprire l'app, <b>chiudi Ableton Live e Novation Components</b>: occupano la porta MIDI e impediscono il collegamento.</li>
+    <li>Cuffie o casse. Un microfono solo se vuoi registrare suoni tuoi sui pad.</li>
+  </ul>
+  <h3>Come si avvia</h3>
+  <p>Doppio clic su <code>Launchpad Studio.html</code>: si apre in Chrome, pronto all'uso. Nessuna installazione, nessun server, nessun Docker. È l'unica app da usare — le vecchie versioni (base e HD) sono state ritirate e non servono più.</p>
+  <div class="note">Suonare a schermo (mouse/trackpad) funziona sempre, anche senza Launchpad: è utile per provare, preparare i set o esibirsi solo col computer.</div>
+
+  <!-- 2 -->
+  <h2 class="sec" id="quickstart">2 · Guida rapida — la tua prima session in 5 minuti</h2>
+  <p>Il percorso più corto dal doppio clic al primo groove che suona.</p>
+  <ol class="steps">
+    <li><b>Apri l'app.</b> Doppio clic su <code>Launchpad Studio.html</code>. (Se hai il Launchpad, collegalo prima e premi <span class="btn">💡 Test LED</span> per verificare che risponda — vedi §3.)</li>
+    <li><b>Carica un genere.</b> In alto a sinistra scegli un genere dal menù <span class="btn">🎚️ Genere</span> e premi <span class="btn primary">▶ Carica genere</span>. La griglia si riempie di loop già a tempo e in tonalità.</li>
+    <li><b>Fai partire il tempo.</b> Premi <span class="btn primary">▶ Play</span> (o <kbd>Spazio</kbd>). Il BPM è già impostato dal genere.</li>
+    <li><b>Lancia una scena.</b> Nella barra <b>Scene</b> clicca <span class="btn">▶1</span>: parte tutta la prima riga (batteria + basso + accordi…) insieme e a tempo.</li>
+    <li><b>Costruisci dal vivo.</b> Premi altri pad (o i pad del Launchpad) per aggiungere/cambiare elementi. In ogni colonna suona una clip alla volta. Usa i cursori del <b>mixer</b> per dosare i volumi.</li>
+    <li><b>Ritocca il suono.</b> Muovi il cursore <b>🎛️ Filtro</b> verso sinistra per chiudere il suono e riaprirlo (effetto "build"); alza un po' <b>Riverbero</b> o <b>Delay</b> per dare aria.</li>
+    <li><b>Registra.</b> Scegli WAV, premi <span class="btn rec">⏺ Registra brano</span>, suona, poi <b>■ Ferma e salva</b>: parte il download del file.</li>
+  </ol>
+  <div class="tip"><b>Se qualcosa sembra sfasato</b>, premi <b>⟲ Re-sync</b> nella barra Scene: riallinea tutti i loop da zero. È la tua rete di sicurezza sul tempo.</div>
+
+  <!-- 3 -->
+  <h2 class="sec" id="connessione">3 · Collegare il Launchpad</h2>
+  <p>Tutto nel pannello di destra, sezione <b>Connessione Launchpad</b>.</p>
+  <h3>Collegamento normale</h3>
+  <ol class="steps">
+    <li>Collega il Launchpad via USB <b>prima</b> di aprire l'app (o ricarica la pagina dopo averlo collegato).</li>
+    <li>Guarda il pallino di stato: <span class="swatch" style="background:var(--green)"></span><b>verde + "Launchpad connesso ✓"</b> = tutto ok. Grigio o rosso = non ancora collegato.</li>
+    <li>Premi <span class="btn">💡 Test LED</span>: i pad del Launchpad si illuminano a colori per un istante. Se succede, i LED sono comandati correttamente.</li>
+  </ol>
+  <h3>Se non risponde: scelta manuale della porta</h3>
+  <p>Windows espone il Launchpad come <b>due</b> coppie di porte MIDI. Quella dal nome "pulito" (<code>LPMiniMK3 MIDI</code>) è la porta pensata per la DAW; quella che comanda davvero i LED dell'app è la <b>seconda</b>:</p>
+  <ol>
+    <li>Apri i menù <b>Uscita MIDI (LED)</b> e <b>Ingresso MIDI (pad)</b>.</li>
+    <li>Scegli in entrambi la voce che inizia con <code>MIDIIN2 / MIDIOUT2 (LPMiniMK3 MIDI)</code>.</li>
+    <li>Ripremi <span class="btn">💡 Test LED</span> per confermare.</li>
+  </ol>
+  <h3>Gli altri pulsanti</h3>
+  <ul>
+    <li><span class="btn">🔄 Rileva di nuovo</span> — ri-scansiona le porte MIDI (usalo se colleghi il Launchpad dopo aver aperto l'app).</li>
+    <li><span class="btn">↩︎ Reset device</span> — riporta il Launchpad in modalità normale (Live). Usalo quando hai finito, o se i LED restano "impiccati".</li>
+    <li><b>Diagnostica</b> (clic sul triangolino per espandere) — elenca le porte MIDI viste dal browser: utile per capire quali sono disponibili quando qualcosa non va.</li>
+  </ul>
+  <div class="warn">Se Chrome mostra una richiesta di permesso per "usare i dispositivi MIDI", premi <b>Consenti</b>. E apri il file in una <b>scheda normale</b> di Chrome, non in una finestra di anteprima incorporata (lì il MIDI è bloccato).</div>
+
+  <!-- 4 -->
+  <h2 class="sec" id="panoramica">4 · Panoramica interfaccia</h2>
+  <p>Qui sotto c'è l'app <b>vera</b>, incorporata: usala come riferimento visivo mentre leggi. (Nell'anteprima il MIDI può non collegarsi, ma l'interfaccia è identica a quella reale.)</p>
+  <div class="frame"><iframe src="Launchpad Studio.html" allow="midi" title="Anteprima Launchpad Studio"></iframe></div>
+  <div class="cap">Anteprima dal vivo. A sinistra: intestazione tracce, griglia 8×8, mixer, master/effetti e le barre Bank / Scene / Preset / Step. A destra: Connessione, Transport e Suoni &amp; Set.</div>
+  <div class="grid2">
+    <div class="card"><h4>Colonna sinistra — il "palco"</h4>
+      <p><b>Intestazione tracce</b> (T1–T8) sopra la griglia · <b>Griglia 8×8</b> dei pad · <b>Mixer</b> per traccia · <b>Master / Filtro / Riverbero / Delay</b> · barre <b>Bank</b>, <b>Scene</b>, <b>Preset</b> e la fila <b>Step</b>.</p></div>
+    <div class="card"><h4>Colonna destra — i "comandi"</h4>
+      <p><b>Connessione Launchpad</b> · <b>Transport</b> (BPM grande, movimenti, Play, metronomo, registrazione brano) · <b>Suoni &amp; Set</b> (carica/registra/svuota pad, modo pad, gain/pitch/choke, salva/apri set).</p></div>
+  </div>
+  <p>In cima a sinistra c'è la barra <b>🎚️ Genere</b> (menù a tendina + <b>Carica genere</b>), aggiunta per il jukebox. In basso, l'etichetta <b>"Pad selezionato:"</b> ti dice sempre su quale pad agiscono i controlli di editing.</p>
+
+  <!-- 5 -->
+  <h2 class="sec" id="suoni">5 · Caricare i suoni</h2>
+  <p>Quattro modi, dal più rapido al più personale.</p>
+  <h3>A) Dal menù Genere — il più veloce</h3>
+  <ol><li>Scegli un genere dal menù <span class="btn">🎚️ Genere</span> in alto a sinistra.</li>
+  <li>Premi <span class="btn primary">▶ Carica genere</span>: la griglia si riempie di loop coerenti tra loro (stessa tonalità e BPM), pronti da suonare.</li></ol>
+  <h3>B) I tuoi file su un pad</h3>
+  <ul>
+    <li><b>Trascina</b> un file audio (WAV o MP3) dal computer direttamente sopra un pad.</li>
+    <li>Oppure <b>seleziona</b> un pad (clic) e premi <span class="btn">📁 Carica su pad selezionato</span> (scorciatoia <kbd>L</kbd>), poi scegli il file.</li>
+  </ul>
+  <h3>C) Set salvati — qualità audio superiore</h3>
+  <p>Premi <span class="btn">📂 Apri set</span> e scegli un file <code>.lpstudio</code> dalla cartella <b>Launchpad Sets</b>. Sono gli stessi generi ma in qualità più alta dei suoni incorporati, con tutte le impostazioni (modalità, gain, pattern, preset) già memorizzate.</p>
+  <h3>D) Registrare dal microfono su un pad</h3>
+  <ol>
+    <li>Seleziona un pad vuoto (o da sovrascrivere).</li>
+    <li>Premi <span class="btn rec">● Registra da microfono</span> (scorciatoia <kbd>R</kbd>) e consenti l'accesso al microfono.</li>
+    <li>Parla/suona, poi premi di nuovo il pulsante (<b>■ Ferma</b>): l'audio finisce su quel pad, pronto come qualsiasi altra clip.</li>
+  </ol>
+  <p><span class="btn">🗑️ Svuota pad</span> cancella la clip dal pad selezionato.</p>
+
+  <!-- 6 -->
+  <h2 class="sec" id="griglia">6 · La griglia e i pad</h2>
+  <h3>Suonare e selezionare</h3>
+  <ul>
+    <li><b>Premere</b> un pad (sul Launchpad o clic a schermo) lo lancia. Se è già in play, ripremerlo lo ferma (in modalità Loop).</li>
+    <li><b>Selezionare</b> un pad = un clic: appare "Pad selezionato: Traccia X · Scena Y" e i controlli di editing (modo, gain, pitch, choke, reverse) agiscono su quel pad.</li>
+    <li><b>Una clip per colonna</b>: lanciare una clip della stessa colonna ferma quella precedente — così ogni "strumento" suona una cosa alla volta.</li>
+  </ul>
+  <h3>Colori e stati (a schermo e sui LED)</h3>
+  <table>
+    <tr><th>Aspetto</th><th>Sul Launchpad</th><th>Significato</th></tr>
+    <tr><td>Colore pieno della traccia</td><td>LED acceso fisso</td><td>Clip caricata, pronta</td></tr>
+    <tr><td>Verde pulsante</td><td>LED verde che pulsa</td><td>In riproduzione</td></tr>
+    <tr><td>Giallo lampeggiante</td><td>LED giallo che lampeggia</td><td>In coda: aspetta il punto di lancio (quantizzazione)</td></tr>
+    <tr><td>Contorno azzurro</td><td>—</td><td>Pad selezionato</td></tr>
+    <tr><td>Spento / grigio</td><td>LED spento</td><td>Pad vuoto</td></tr>
+    <tr><td>Badge <b>①</b> / <b>⤓</b></td><td>—</td><td>Modalità One-shot / Gate impostata su quel pad</td></tr>
+  </table>
+
+  <!-- 7 -->
+  <h2 class="sec" id="modalita">7 · Modalità pad</h2>
+  <p>Seleziona un pad, poi in <b>Suoni &amp; Set → Modo pad</b> scegli come reagisce quando lo premi. È la differenza tra un loop di batteria e un colpo secco di effetto.</p>
+  <table>
+    <tr><th>Modalità</th><th>Comportamento</th><th>Quando usarla</th></tr>
+    <tr><td><b>Loop (fisso)</b></td><td>Parte e gira in ciclo continuo finché non ripremi il pad per fermarlo.</td><td>Batterie, bassi, accordi, pad — la base ritmica/armonica.</td></tr>
+    <tr><td><b>One-shot ①</b></td><td>Un colpo solo a ogni pressione, poi si spegne da sé. Puoi ri-triggerarlo a raffica.</td><td>FX, colpi, riser, vocal chop, impatti.</td></tr>
+    <tr><td><b>Gate ⤓</b></td><td>Suona <b>solo mentre tieni premuto</b>; si ferma appena rilasci.</td><td>Effetti tenuti, stutter, "freeze" ritmici, note tenute.</td></tr>
+  </table>
+  <p><span class="btn">→ colonna</span> applica la modalità scelta a <b>tutta la colonna</b> del pad selezionato (comodo: imposti una volta e vale per tutte le scene di quello strumento).</p>
+  <div class="note"><b>Sempre Loop di default:</b> ogni pad — dal jukebox, da un set o da un tuo file trascinato — parte in modalità <b>Loop</b> finché non lo cambi tu da <b>Modo pad</b> (o con <span class="btn">→ colonna</span> per tutta la colonna). Nessun rilevamento automatico dal nome del file: la scelta resta sempre tua.</div>
+
+  <!-- 8 -->
+  <h2 class="sec" id="tempo">8 · Suonare a tempo</h2>
+  <p>Il cuore dell'app: far partire i loop in modo che restino sincronizzati.</p>
+  <h3>Aggancio di fase (perché tutto "sta insieme")</h3>
+  <p>Quando lanci un loop, non parte "grezzo": l'app calcola dove dovrebbe trovarsi nel tempo e lo fa entrare <b>già in fase</b> con gli altri. Per questo anche con <b>Quantizza = Subito</b> i loop restano allineati: entri istantaneamente ma nel punto giusto del ciclo.</p>
+  <h3>Quantizzazione del lancio</h3>
+  <p>Il menù <b>Quantizza lancio</b> decide <b>quando</b> parte il pad che premi:</p>
+  <table>
+    <tr><th>Opzione</th><th>Il pad parte…</th><th>Sensazione</th></tr>
+    <tr><td><b>Subito</b> <span class="note" style="display:inline;padding:1px 6px">predefinito</span></td><td>immediatamente (ma agganciato in fase)</td><td>reattivo, "strumentale"</td></tr>
+    <tr><td><b>A movimento</b></td><td>sul prossimo movimento (¼ di battuta)</td><td>preciso ma quasi istantaneo</td></tr>
+    <tr><td><b>A battuta</b></td><td>a inizio della prossima battuta</td><td>entrate pulite, piccola attesa</td></tr>
+    <tr><td><b>A frase</b></td><td>a inizio della prossima frase (più battute)</td><td>massimo allineamento, attesa più lunga</td></tr>
+  </table>
+  <div class="tip"><b>⟲ Re-sync</b> (barra Scene) fa ripartire <b>tutti i loop attivi insieme, da zero</b>, e riallinea la griglia al tempo. Usalo come reset: lancia liberamente e quando vuoi "riquadrare" tutto, premi Re-sync.</div>
+  <h3>BPM e controllo del tempo</h3>
+  <ul>
+    <li><b>BPM grande</b> in alto + i <b>4 pallini</b> mostrano il movimento corrente quando sei in Play.</li>
+    <li><b>Campo BPM</b>: scrivi il tempo (40–240). Coi generi è già corretto.</li>
+    <li><span class="btn">TAP</span>: batti a ritmo 3–4 volte per impostare il BPM "a orecchio".</li>
+    <li><b>Sync BPM</b> (spunta): se attiva, i loop si adattano al BPM che imposti allungandosi/accorciandosi (metodo "da giradischi": cambia leggermente l'intonazione). Utile per mixare loop nati a tempi diversi. Se spenta, ogni loop suona alla sua velocità originale.</li>
+    <li><b>Battute loop</b> (1 / 2 / 4 / 8): la lunghezza della "frase", usata dalla quantizzazione "A frase" e come riferimento del ciclo.</li>
+  </ul>
+  <h3>Metronomo e pre-count</h3>
+  <ul>
+    <li><span class="btn">🥁 Metronomo</span>: click a tempo per esercitarti o registrare. I pallini seguono il movimento.</li>
+    <li><b>Pre-count</b> (nella sezione registrazione): 1 battuta di conteggio prima di partire — utile per prepararti prima che parta la registrazione.</li>
+  </ul>
+
+  <!-- 9 -->
+  <h2 class="sec" id="mixer">9 · Mixer, master ed effetti</h2>
+  <h3>Mixer per traccia (sotto la griglia)</h3>
+  <p>Una strip per colonna, con:</p>
+  <ul>
+    <li><b>Cursore volume</b> — il livello di quella traccia.</li>
+    <li><span class="btn">M</span> <b>Mute</b> — silenzia la traccia (ripremi per riattivare).</li>
+    <li><span class="btn">S</span> <b>Solo</b> — isola quella traccia silenziando le altre; più Solo insieme suonano solo quelle.</li>
+    <li><span class="btn">■</span> <b>Stop traccia</b> — ferma la clip in riproduzione su quella colonna.</li>
+  </ul>
+  <h3>Master ed effetti generali</h3>
+  <p>Questi agiscono su tutto il mix. Valori pratici tra parentesi.</p>
+  <table>
+    <tr><th>Controllo</th><th>Cosa fa</th><th>Consiglio</th></tr>
+    <tr><td><b>🔊 Master</b></td><td>Volume generale. Un limiter interno evita la distorsione quando molti loop si sommano.</td><td>Lascialo alto; abbassa solo se serve.</td></tr>
+    <tr><td><b>🎛️ Filtro</b></td><td>Passa-basso globale. Tutto a destra = aperto (suono pieno); verso sinistra taglia gli acuti e chiude il suono.</td><td>Chiudi durante un break e riapri sul drop: "build" istantaneo.</td></tr>
+    <tr><td><b>🌫️ Riverbero</b> + <b>dim.</b></td><td>Quantità di riverbero (wet, 0–0.8) e dimensione dell'ambiente (dim., piccola→grande).</td><td>Poco riverbero su voci/melodie dà aria senza impastare.</td></tr>
+    <tr><td><b>⏩ Delay</b> + tempo + <b>fb</b></td><td>Quantità (wet), tempo dell'eco sincronizzato al BPM (1/4, 1/8., 1/8, 1/16) e feedback (fb = quante ripetizioni, 0–0.85).</td><td>1/8 con fb medio è il "dub delay" classico.</td></tr>
+  </table>
+
+  <!-- 10 -->
+  <h2 class="sec" id="scene">10 · Scene, Preset, Banchi</h2>
+  <h3>Scene (barra ▶1 … ▶8)</h3>
+  <p>Un clic su <b>▶n</b> lancia <b>l'intera riga n</b> — tutti gli strumenti di quella scena — insieme e a tempo. È il modo più rapido per far partire un arrangiamento completo e coerente. <span class="btn">■ Stop tutto</span> ferma ogni cosa; <b>⟲ Re-sync</b> riallinea.</p>
+  <h3>Preset / snapshot (barra P1 … P8)</h3>
+  <p>Uno snapshot è una <b>foto delle clip attive in quel momento</b>, che puoi richiamare al volo — ideale per le transizioni "intro → drop → break" dal vivo.</p>
+  <ol class="steps">
+    <li>Fai suonare la combinazione di clip che vuoi memorizzare.</li>
+    <li>Premi <span class="btn">💾 Salva</span> (l'etichetta diventa "Scegli slot…"), poi premi uno slot (es. <b>P1</b>). Lo slot diventa verde: memorizzato.</li>
+    <li>Durante l'esecuzione premi <b>P1</b> per richiamare quella combinazione: le sue clip ripartono insieme e a tempo.</li>
+  </ol>
+  <h3>Banchi (barra A / B / C / D)</h3>
+  <p>Quattro griglie 8×8 indipendenti = fino a <b>256 clip</b>. Cliccando un banco la riproduzione si ferma e passi all'altra griglia (per esempio A = strofa, B = ritornello). Ottimo per organizzare tanti suoni o più brani.</p>
+  <div class="note">Il salvataggio del set salva il <b>banco attivo</b>: i banchi B/C/D sono di sessione e non finiscono nel file <code>.lpstudio</code>.</div>
+
+  <!-- 11 -->
+  <h2 class="sec" id="seq">11 · Step sequencer</h2>
+  <p>Sotto le barre c'è una fila di <b>16 caselle</b> (16 passi = 1 battuta a 1/16) riferita al <b>pad selezionato</b>. Serve a costruire pattern ritmici automatici invece di premere a mano.</p>
+  <ol class="steps">
+    <li>Seleziona un pad (es. una cassa).</li>
+    <li>Clicca le caselle sui passi in cui deve suonare (es. 1, 5, 9, 13 per un four-on-the-floor).</li>
+    <li>Premi <span class="btn primary">▶ Play</span>: il pad scatta in one-shot sui passi accesi, a tempo. Una casella bianca scorre a mostrare il passo corrente.</li>
+    <li>Seleziona un altro pad e ripeti (rullante, hi-hat, percussioni…): costruisci una batteria completa a step.</li>
+  </ol>
+  <p><span class="btn">✕ pattern</span> cancella il pattern del pad selezionato.</p>
+  <div class="note">Il sequencer gira solo con il transport in <b>Play</b>. I pattern vengono salvati dentro il set.</div>
+
+  <!-- 12 -->
+  <h2 class="sec" id="clip">12 · Editing per clip (pad selezionato)</h2>
+  <p>Questi controlli, in <b>Suoni &amp; Set</b>, agiscono solo sul pad selezionato.</p>
+  <table>
+    <tr><th>Controllo</th><th>Effetto</th><th>Idee d'uso</th></tr>
+    <tr><td><b>Reverse</b> (spunta)</td><td>Fa suonare la clip al contrario.</td><td>Riser/swell prima di un colpo; texture al rovescio.</td></tr>
+    <tr><td><b>Gain</b> (0–1.5)</td><td>Volume della singola clip, indipendente dal mixer.</td><td>Bilanciare un colpo troppo forte/debole rispetto agli altri.</td></tr>
+    <tr><td><b>Pitch</b> (−12…+12)</td><td>Intonazione in semitoni. Cambia anche la velocità del loop (senza preservazione del tempo).</td><td>Portare un basso in tonalità; variare un vocal chop.</td></tr>
+    <tr><td><b>Choke</b> (— / 1–4)</td><td>I pad con lo stesso numero di choke si <b>tagliano a vicenda</b>: quando uno parte, l'altro si spegne.</td><td>Hi-hat aperto/chiuso sullo stesso gruppo; scelte "o l'uno o l'altro".</td></tr>
+  </table>
+
+  <!-- 13 -->
+  <h2 class="sec" id="registrare">13 · Registrare un brano</h2>
+  <p>Registri il <b>mix finale</b> (tutto ciò che senti) in tempo reale.</p>
+  <ol class="steps">
+    <li>(Opzionale) attiva <b>Pre-count</b> per avere una battuta di conteggio prima di iniziare.</li>
+    <li>Scegli il formato: <b>WAV</b> (più pesante, massima compatibilità) o <b>MP3</b> (più leggero da condividere).</li>
+    <li>Premi <span class="btn rec">⏺ Registra brano</span>: il cronometro parte. Suona la tua performance (lancia scene, muovi filtro/effetti, ecc.).</li>
+    <li>Premi <b>■ Ferma e salva</b>: parte il download del file (finisce nella cartella Download di Chrome; potrai spostarlo dove vuoi, ad es. nella cartella <b>Registrazioni</b>).</li>
+  </ol>
+  <div class="note">Registra il mix, non le tracce separate. Se vuoi versioni diverse, registra più passaggi.</div>
+
+  <!-- 14 -->
+  <h2 class="sec" id="set">14 · Salvare / aprire un set</h2>
+  <ul>
+    <li><span class="btn">💾 Salva set</span>: scarica un file <code>.lpstudio</code> che contiene <b>tutto</b> del banco attivo — suoni, modalità dei pad, gain/pitch/choke, pattern dello step sequencer, preset e impostazioni di tempo/effetti.</li>
+    <li><span class="btn">📂 Apri set</span>: ricarica un <code>.lpstudio</code> e ritrovi la sessione com'era, banco attivo incluso. Unica eccezione voluta: la quantizzazione del lancio torna sempre su "Subito", così il set riparte subito in fase invece che in coda su un movimento che potrebbe non arrivare mai.</li>
+  </ul>
+  <div class="note">I set pronti nella cartella <b>Launchpad Sets</b> hanno qualità audio superiore a quella dei generi incorporati: caricali da qui quando vuoi il suono migliore.</div>
+
+  <!-- 15 -->
+  <h2 class="sec" id="workflow">15 · Esempi di workflow</h2>
+  <h3>A) Set dal vivo con il Launchpad (10 minuti)</h3>
+  <ol>
+    <li>Collega il Launchpad, <span class="btn">💡 Test LED</span>, carica un genere, <b>Play</b>.</li>
+    <li>Programma i <b>Preset</b>: P1 = solo batteria+basso (intro), P2 = + accordi (strofa), P3 = tutto (drop), P4 = solo pad+FX (break).</li>
+    <li>Esibizione: parti da P1, muovi il <b>Filtro</b> per costruire tensione, salta a P3 sul drop, usa <b>Delay</b> in coda alle frasi, torna a P4 per respirare, <b>⟲ Re-sync</b> se serve.</li>
+    <li>Registra tutto con <span class="btn rec">⏺ Registra brano</span>.</li>
+  </ol>
+  <h3>B) Beat a step (senza toccare i pad a tempo)</h3>
+  <ol>
+    <li>Carica un genere o dei singoli suoni di batteria.</li>
+    <li>Cassa: seleziona il pad, accendi gli step 1-5-9-13. Rullante: step 5 e 13. Hi-hat: step dispari.</li>
+    <li><b>Play</b>: il groove gira da solo. Aggiungi un basso in Loop e degli accordi, e hai una base completa.</li>
+  </ol>
+  <h3>C) Riorganizzare i tuoi campioni</h3>
+  <ol>
+    <li>Trascina i tuoi WAV/MP3 sui pad, una colonna per tipo di suono.</li>
+    <li>Imposta le modalità (Loop per le basi, One-shot per i colpi) e i choke per hi-hat.</li>
+    <li><span class="btn">💾 Salva set</span> per ritrovare tutto pronto la prossima volta.</li>
+  </ol>
+
+  <!-- 16 -->
+  <h2 class="sec" id="riferimento">16 · Riferimento controlli (tutti i pulsanti)</h2>
+  <h4>In alto a sinistra</h4>
+  <table>
+    <tr><th>Controllo</th><th>Funzione</th></tr>
+    <tr><td>🎚️ Genere (menù) + ▶ Carica genere</td><td>Sceglie e carica un genere pronto nella griglia</td></tr>
+  </table>
+  <h4>Master &amp; effetti (sotto il mixer)</h4>
+  <table>
+    <tr><th>Controllo</th><th>Range</th><th>Funzione</th></tr>
+    <tr><td>🔊 Master</td><td>0–1</td><td>Volume generale (con limiter)</td></tr>
+    <tr><td>🎛️ Filtro</td><td>0–1</td><td>Passa-basso globale (dx = aperto)</td></tr>
+    <tr><td>🌫️ Riverbero</td><td>0–0.8</td><td>Quantità di riverbero</td></tr>
+    <tr><td>dim.</td><td>0.3–3.5</td><td>Dimensione dell'ambiente del riverbero</td></tr>
+    <tr><td>⏩ Delay</td><td>0–0.8</td><td>Quantità di eco</td></tr>
+    <tr><td>Delay tempo</td><td>1/4 · 1/8. · 1/8 · 1/16</td><td>Tempo dell'eco (sincronizzato al BPM)</td></tr>
+    <tr><td>fb</td><td>0–0.85</td><td>Feedback: numero di ripetizioni</td></tr>
+  </table>
+  <h4>Connessione</h4>
+  <table>
+    <tr><th>Controllo</th><th>Funzione</th></tr>
+    <tr><td>Uscita MIDI (LED) / Ingresso MIDI (pad)</td><td>Scelta manuale delle porte</td></tr>
+    <tr><td>🔄 Rileva di nuovo</td><td>Ri-scansiona le porte</td></tr>
+    <tr><td>💡 Test LED</td><td>Accende i pad per verificare</td></tr>
+    <tr><td>↩︎ Reset device</td><td>Riporta il Launchpad in modalità normale</td></tr>
+    <tr><td>Diagnostica</td><td>Elenco porte MIDI rilevate</td></tr>
+  </table>
+  <h4>Transport</h4>
+  <table>
+    <tr><th>Controllo</th><th>Funzione</th></tr>
+    <tr><td>BPM (campo)</td><td>Imposta il tempo (40–240)</td></tr>
+    <tr><td>TAP</td><td>Imposta il BPM battendo a ritmo</td></tr>
+    <tr><td>Sync BPM (spunta)</td><td>Adatta i loop al BPM impostato</td></tr>
+    <tr><td>Battute loop (1/2/4/8)</td><td>Lunghezza frase per la quantizzazione</td></tr>
+    <tr><td>▶ Play</td><td>Avvia/ferma il transport (<kbd>Spazio</kbd>)</td></tr>
+    <tr><td>🥁 Metronomo</td><td>Click a tempo</td></tr>
+    <tr><td>⏺ Registra brano + WAV/MP3</td><td>Registra il mix e sceglie il formato</td></tr>
+    <tr><td>Pre-count (spunta)</td><td>1 battuta di conteggio prima di registrare</td></tr>
+    <tr><td>Quantizza lancio</td><td>Subito / A movimento / A battuta / A frase</td></tr>
+  </table>
+  <h4>Suoni &amp; Set</h4>
+  <table>
+    <tr><th>Controllo</th><th>Funzione</th></tr>
+    <tr><td>📁 Carica su pad selezionato</td><td>Carica un file audio sul pad (<kbd>L</kbd>)</td></tr>
+    <tr><td>● Registra da microfono</td><td>Registra dal mic sul pad (<kbd>R</kbd>)</td></tr>
+    <tr><td>🗑️ Svuota pad</td><td>Cancella la clip dal pad</td></tr>
+    <tr><td>Modo pad + → colonna</td><td>Loop / One-shot / Gate (e applica a tutta la colonna)</td></tr>
+    <tr><td>Reverse</td><td>Suona la clip al contrario</td></tr>
+    <tr><td>Gain / Pitch / Choke</td><td>Volume / intonazione / gruppo di taglio della clip</td></tr>
+    <tr><td>💾 Salva set / 📂 Apri set</td><td>Salva o carica un file .lpstudio</td></tr>
+  </table>
+  <h4>Barre</h4>
+  <table>
+    <tr><th>Barra</th><th>Funzione</th></tr>
+    <tr><td>Bank A/B/C/D</td><td>Passa tra 4 griglie indipendenti</td></tr>
+    <tr><td>Scene ▶1…▶8 · ■ Stop tutto · ⟲ Re-sync</td><td>Lancia righe intere, ferma tutto, riallinea</td></tr>
+    <tr><td>Preset P1…P8 · 💾 Salva</td><td>Memorizza/richiama combinazioni di clip</td></tr>
+    <tr><td>Step ×16 · ✕ pattern</td><td>Pattern ritmico del pad selezionato</td></tr>
+  </table>
+
+  <!-- 17 -->
+  <h2 class="sec" id="scorciatoie">17 · Scorciatoie da tastiera</h2>
+  <table>
+    <tr><th>Tasto</th><th>Azione</th></tr>
+    <tr><td><kbd>Spazio</kbd></td><td>Play / Stop</td></tr>
+    <tr><td><kbd>L</kbd></td><td>Carica un file sul pad selezionato</td></tr>
+    <tr><td><kbd>R</kbd></td><td>Registra dal microfono sul pad selezionato</td></tr>
+  </table>
+
+  <!-- 18 -->
+  <h2 class="sec" id="hardware">18 · Launchpad fisico (mappatura)</h2>
+  <table>
+    <tr><th>Zona del Launchpad</th><th>Funzione nell'app</th></tr>
+    <tr><td>Griglia centrale 8×8</td><td>Gli stessi pad a schermo: premi per lanciare, rilascia (conta per il Gate)</td></tr>
+    <tr><td>Colonna di tondi a destra</td><td>Lancia le <b>Scene</b> (righe intere)</td></tr>
+    <tr><td>Fila di tasti in alto</td><td><b>Stop</b> della colonna corrispondente</td></tr>
+    <tr><td>LED dei pad</td><td>Spento = vuoto · colore = caricato · verde pulsante = in play · giallo lampeggiante = in coda</td></tr>
+  </table>
+  <div class="note">L'app mette il Launchpad in "Programmer Mode" per controllare i LED. A fine sessione premi <span class="btn">↩︎ Reset device</span> per riportarlo in modalità normale.</div>
+
+  <!-- 19 -->
+  <h2 class="sec" id="faq">19 · Problemi comuni (FAQ)</h2>
+  <h4>I LED non si accendono / non rileva il Launchpad</h4>
+  <p>Su Windows scegli a mano la porta <code>MIDIIN2 / MIDIOUT2 (LPMiniMK3 MIDI)</code> nei due menù. Chiudi Ableton e Novation Components. Ricollega il device e ricarica la pagina, poi premi 🔄 Rileva di nuovo e 💡 Test LED. Usa Chrome/Edge, non Safari/Firefox.</p>
+  <h4>Chrome non chiede il permesso MIDI</h4>
+  <p>Apri il file in una scheda normale di Chrome (non in un'anteprima incorporata). Controlla che il sito non abbia il MIDI bloccato nelle impostazioni del lucchetto in barra indirizzi.</p>
+  <h4>Il suono entra in ritardo / il pad lampeggia a lungo</h4>
+  <p>È la quantizzazione: metti <b>Quantizza lancio</b> su <b>Subito</b> per l'entrata istantanea. Il lampeggio giallo indica l'attesa del punto di lancio.</p>
+  <h4>Sembra tutto fuori sync</h4>
+  <p>Premi <b>⟲ Re-sync</b> per riallineare i loop da zero. Per partire già allineato, lancia le tracce insieme con una <b>Scena</b> o un <b>Preset</b>.</p>
+  <h4>Ho cambiato BPM e le melodie stonano</h4>
+  <p>Con <b>Sync BPM</b> attivo, allontanarsi dal tempo originale del loop ne cambia l'intonazione. Riporta il BPM vicino a quello del genere, o disattiva Sync BPM.</p>
+  <h4>La registrazione non parte o non salva</h4>
+  <p>Apri l'app in Chrome (non nell'anteprima) e registra almeno qualche secondo prima di fermare. Il file va nei Download di Chrome.</p>
+  <h4>Il microfono non registra</h4>
+  <p>Consenti l'accesso al microfono quando Chrome lo chiede; controlla il permesso dal lucchetto in barra indirizzi.</p>
+
+  <!-- 20 -->
+  <h2 class="sec" id="glossario">20 · Glossario</h2>
+  <table>
+    <tr><th>Termine</th><th>Significato</th></tr>
+    <tr><td><b>Clip</b></td><td>Il suono/loop caricato su un pad.</td></tr>
+    <tr><td><b>Traccia</b></td><td>Una colonna della griglia (uno "strumento"). Suona una clip alla volta.</td></tr>
+    <tr><td><b>Scena</b></td><td>Una riga della griglia: tutte le clip di quella riga lanciate insieme.</td></tr>
+    <tr><td><b>Preset / snapshot</b></td><td>Una combinazione salvata di clip attive, richiamabile al volo.</td></tr>
+    <tr><td><b>Banco</b></td><td>Una delle 4 griglie indipendenti (A–D).</td></tr>
+    <tr><td><b>Quantizzazione</b></td><td>L'aggancio del momento di lancio a movimento/battuta/frase.</td></tr>
+    <tr><td><b>Aggancio di fase</b></td><td>Far entrare un loop già allineato al punto giusto del ciclo.</td></tr>
+    <tr><td><b>One-shot / Gate / Loop</b></td><td>Le tre modalità di reazione del pad.</td></tr>
+    <tr><td><b>Choke group</b></td><td>Gruppo di pad che si tagliano a vicenda.</td></tr>
+    <tr><td><b>BPM</b></td><td>Battiti per minuto = velocità del brano.</td></tr>
+    <tr><td><b>Wet / Feedback</b></td><td>Quantità di effetto / numero di ripetizioni (delay).</td></tr>
+    <tr><td><b>Programmer Mode</b></td><td>Modalità del Launchpad in cui l'app comanda i LED.</td></tr>
+  </table>
+
+  <!-- 21 -->
+  <h2 class="sec" id="limiti">21 · Limiti noti (in trasparenza)</h2>
+  <ul>
+    <li>Audio dei generi incorporati <b>compresso</b> (per stare in un file solo): per la qualità piena carica i set dalla cartella <b>Launchpad Sets</b> o i tuoi WAV originali.</li>
+    <li><b>Sync BPM</b> è un time-stretch "da giradischi": fuori dal tempo originale cambia un po' l'intonazione.</li>
+    <li>La registrazione del brano è pulita ma internamente compressa (non PCM puro bit-per-bit).</li>
+    <li>I banchi <b>B/C/D</b> non vengono salvati nel file .lpstudio (solo il banco attivo).</li>
+    <li>Lo step sequencer è a <b>16 passi / 1 battuta</b> e gira solo con il transport in Play.</li>
+    <li>Non c'è <b>Undo</b> né salvataggio automatico: salva spesso il set.</li>
+  </ul>
+
+  <p style="margin-top:44px;color:var(--dim);font-size:13px">Launchpad Studio — manuale utente. Per i dettagli tecnici e per riprendere lo sviluppo vedi <code>SVILUPPO.md</code> nella stessa cartella.</p>
+</main>
+</div>
+</body>
+</html>
