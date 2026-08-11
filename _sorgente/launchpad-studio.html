@@ -812,10 +812,12 @@ function recallSnapshot(i){ const snap=snapshots[i]; if(!snap) return;
     const ts=trackState[c]; if(ts.playingRow===r) continue;
     ts.queuedRow=r; renderPad(r,c); updateLed(r,c); scheduleClip(r,c,when); } }
 
-// ---- BANKING: 4 banchi indipendenti (cambio banco = stop + cambio griglia) ----
+// ---- BANKING: 4 banchi indipendenti (cambio banco = dissolvenza + cambio griglia, audio già decodificato -> istantaneo) ----
 const bankBtns=[];
 function updateBankUI(){ bankBtns.forEach((b,i)=>b.classList.toggle('on',i===activeBank)); }
-function switchBank(i){ if(i===activeBank||i<0||i>=NBANKS) return; stopAll(); activeBank=i; clips=banks[i]; selectPad(selected.r,selected.c); recomputeTrackColors(); renderAll(); refreshAllLeds(); updateBankUI(); }
+async function switchBank(i){ if(i===activeBank||i<0||i>=NBANKS) return;
+  await stopAllSmooth(0.6);   // dissolvenza piu' breve del cambio genere: qui i suoni sono gia' decodificati, non c'e' attesa di caricamento
+  activeBank=i; clips=banks[i]; selectPad(selected.r,selected.c); recomputeTrackColors(); renderAll(); refreshAllLeds(); updateBankUI(); }
 function cycleBank(){ switchBank((activeBank+1)%NBANKS); }
 (function(){
   const bb=document.getElementById('bankBar');
