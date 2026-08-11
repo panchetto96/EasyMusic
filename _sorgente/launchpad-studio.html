@@ -642,8 +642,14 @@ document.getElementById('testLeds').onclick=async()=>{
 
 function onMidiMessage(ev){
   const [status,d1,d2]=ev.data; const type=status&0xF0;
-  // colonna destra "scene launch" del Launchpad (note 19,29,...,89)
-  if(type===0x90&&d2>0&&d1%10===9&&d1>=19&&d1<=89){ launchScene(7-(d1-19)/10); return; }
+  // colonna destra "scene launch" del Launchpad — su alcuni Mini MK3 arriva come CC (0xB0), non Note On.
+  // Due tasti sono riservati: nota 29 cambia banco, nota 19 (in basso) ferma tutto. Il resto, incluso quello
+  // in alto (nota 89, Scena 1), lancia scene normalmente.
+  if((type===0x90||type===0xB0)&&d2>0&&d1%10===9&&d1>=19&&d1<=89){
+    if(d1===29){ cycleBank(); return; }
+    if(d1===19){ stopAll(); return; }
+    launchScene(7-(d1-19)/10); return;
+  }
   // fila superiore del Launchpad (91-98) = stop della colonna
   if((type===0x90||type===0xB0)&&d2>0&&d1>=91&&d1<=98){ stopTrackClip(d1-91,true); return; }
   const p=noteToPad[d1]; if(!p) return;
@@ -745,6 +751,7 @@ function recallSnapshot(i){ const snap=snapshots[i]; if(!snap) return;
 const bankBtns=[];
 function updateBankUI(){ bankBtns.forEach((b,i)=>b.classList.toggle('on',i===activeBank)); }
 function switchBank(i){ if(i===activeBank||i<0||i>=NBANKS) return; stopAll(); activeBank=i; clips=banks[i]; selectPad(selected.r,selected.c); recomputeTrackColors(); renderAll(); refreshAllLeds(); updateBankUI(); }
+function cycleBank(){ switchBank((activeBank+1)%NBANKS); }
 (function(){
   const bb=document.getElementById('bankBar');
   const lbl=document.createElement('span'); lbl.textContent='Bank'; lbl.style.cssText='font-size:12px;color:var(--dim);margin-right:4px'; bb.appendChild(lbl);
