@@ -25,6 +25,7 @@
   .pad:active{transform:scale(.94)}
   .pad.loaded{color:#0a0d12;font-weight:600}
   .pad.dragover{outline:2px dashed var(--accent);outline-offset:-2px}
+  .pad.dragging{opacity:.35}
   .pad.playing{box-shadow:0 0 0 2px #fff inset, 0 0 12px var(--green)}
   .pad.queued{box-shadow:0 0 0 2px var(--yellow) inset;animation:blink .4s steps(1) infinite}
   @keyframes blink{50%{box-shadow:0 0 0 2px transparent inset}}
@@ -794,13 +795,23 @@ function updateLed(r,c){
 // ====================== GRIGLIA + MIXER ======================
 const gridEl=document.getElementById('grid'), colhdr=document.getElementById('colhdr'), mixrow=document.getElementById('mixrow');
 const padEls=[];
+// Ctrl+trascinamento tra pad (vedi completeDrag piu' sotto): senza Ctrl un mousedown attiva gia'
+// il pad (suona/avvia/apre il gate), quindi il drag va segnalato esplicitamente per non innescare
+// anche la riproduzione come effetto collaterale dell'afferrare il pad.
+let dragSourcePad=null;   // {r,c} — pad afferrato, o null se nessun trascinamento in corso
 for(let c=0;c<COLS;c++){ const d=document.createElement('div'); d.textContent='T'+(c+1); colhdr.appendChild(d); }
 for(let r=0;r<ROWS;r++){ padEls.push([]);
   for(let c=0;c<COLS;c++){
     const el=document.createElement('div'); el.className='pad'; el.dataset.r=r; el.dataset.c=c;
-    el.onpointerdown=(e)=>{ e.preventDefault(); if(perfMode==='drums') selectPad(r,c); triggerDown(r,c); };
-    el.onpointerup=()=>triggerUp(r,c);
-    el.onpointerleave=()=>triggerUp(r,c);
+    el.onpointerdown=(e)=>{
+      e.preventDefault();
+      if(e.ctrlKey){ if(!activeGrid()[r][c]) return; dragSourcePad={r,c}; el.classList.add('dragging'); return; }
+      if(dragSourcePad){ padEls[dragSourcePad.r][dragSourcePad.c].classList.remove('dragging'); dragSourcePad=null; }
+      if(perfMode==='drums') selectPad(r,c); triggerDown(r,c);
+    };
+    el.onpointerup=()=>{ if(dragSourcePad){ completeDrag(r,c); return; } triggerUp(r,c); };
+    el.onpointerenter=()=>{ if(dragSourcePad && trackColorIdx[c]===trackColorIdx[dragSourcePad.c]) el.classList.add('dragover'); };
+    el.onpointerleave=()=>{ el.classList.remove('dragover'); if(dragSourcePad) return; triggerUp(r,c); };
     el.oncontextmenu=(e)=>{ e.preventDefault(); setPadOneShot(r,c); };   // tasto destro = scorciatoia "imposta one-shot"
     el.ondragover=(e)=>{e.preventDefault();el.classList.add('dragover');};
     el.ondragleave=()=>el.classList.remove('dragover');
@@ -1045,6 +1056,24 @@ function setPadOneShot(r,c){
   pushUndo(); stopPadSound(r,c); cl.mode='oneshot';
   document.getElementById('padMode').value='oneshot';
   renderPad(r,c); updateLed(r,c);
+}
+// Completa un Ctrl+trascinamento (vedi onpointerdown/up sui pad piu' sopra): sposta il contenuto sul
+// pad di destinazione, o li scambia se era gia' occupato. Ammesso solo tra colonne dello stesso "tipo"
+// (stesso trackColorIdx, il raggruppamento colore per categoria gia' usato per LED/mixer) per non
+// mescolare per sbaglio suoni di categorie diverse tra le tracce.
+function completeDrag(r,c){
+  const src=dragSourcePad; dragSourcePad=null;
+  if(!src) return;
+  const {r:sr,c:sc}=src;
+  padEls[sr][sc].classList.remove('dragging');
+  padEls[r][c].classList.remove('dragover');
+  if(sr===r && sc===c) return;
+  if(trackColorIdx[c]!==trackColorIdx[sc]) return;
+  const g=activeGrid(); if(!g[sr][sc]) return;
+  pushUndo();
+  if(perfMode===null){ stopPadSound(sr,sc); stopPadSound(r,c); }
+  const tmp=g[r][c]; g[r][c]=g[sr][sc]; g[sr][sc]=tmp;
+  renderPad(sr,sc); renderPad(r,c); updateLed(sr,sc); updateLed(r,c);
 }
 document.getElementById('padModeCol').onclick=()=>{ const{c}=selected; const m=document.getElementById('padMode').value; const g=activeGrid();
   pushUndo();
