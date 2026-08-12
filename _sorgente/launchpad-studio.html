@@ -703,6 +703,11 @@ document.getElementById('testLeds').onclick=async()=>{
   setTimeout(refreshAllLeds,1500);
 };
 
+// Session distingue tocco rapido da tenuto premuto: sotto soglia = tap (comportamento invariato),
+// oltre soglia = hold (resync). Serve solo quando perfMode===null: con un overlay attivo Session
+// esce sempre subito, senza ambiguita' da risolvere.
+const SESSION_HOLD_MS=500;
+let sessionHoldTimer=null, sessionHoldFired=false;
 function onMidiMessage(ev){
   const [status,d1,d2]=ev.data; const type=status&0xF0;
   // colonna destra "scene launch" del Launchpad — su alcuni Mini MK3 arriva come CC (0xB0), non Note On.
@@ -714,13 +719,29 @@ function onMidiMessage(ev){
     launchScene(7-(d1-19)/10); return;
   }
   // fila superiore del Launchpad: 91-94 = stop della colonna; 95-98 (Session/Drums/Keys/User) non fermano
-  // più una colonna, hanno un ruolo dedicato per le modalità performance (vedi SVILUPPO.md §5). Ordine
-  // fisico confermato su hardware reale: 91=Up 92=Down 93=Left 94=Right 95=Session 96=Drums 97=Keys 98=User (tutti CC 0xB0).
+  // più una colonna, hanno un ruolo dedicato per le modalità performance (vedi SVILUPPO.md §5) — Session
+  // distingue tocco/tenuto (vedi sopra), User avvia/ferma la registrazione del brano. Ordine fisico
+  // confermato su hardware reale: 91=Up 92=Down 93=Left 94=Right 95=Session 96=Drums 97=Keys 98=User (tutti CC 0xB0).
   if((type===0x90||type===0xB0)&&d2>0&&d1>=91&&d1<=94){ stopTrackClip(d1-91,true); return; }
-  if((type===0x90||type===0xB0)&&d2>0&&d1===95){ if(perfMode!==null){ exitPerfMode(); } else { stopAll(); } return; }
+  if(d1===95){
+    const isPress=(type===0x90||type===0xB0)&&d2>0, isRelease=type===0x80||((type===0x90||type===0xB0)&&d2===0);
+    if(isPress){
+      if(perfMode!==null){ exitPerfMode(); return; }
+      sessionHoldFired=false; clearTimeout(sessionHoldTimer);
+      sessionHoldTimer=setTimeout(()=>{ sessionHoldFired=true; resyncAll(); }, SESSION_HOLD_MS);
+      return;
+    }
+    if(isRelease){
+      clearTimeout(sessionHoldTimer); sessionHoldTimer=null;
+      if(!sessionHoldFired) stopAll();
+      sessionHoldFired=false;
+      return;
+    }
+    return;
+  }
   if((type===0x90||type===0xB0)&&d2>0&&d1===96){ togglePerfMode('drums'); return; }
   if((type===0x90||type===0xB0)&&d2>0&&d1===97){ togglePerfMode('keys'); return; }
-  if((type===0x90||type===0xB0)&&d2>0&&d1===98){ resyncAll(); return; }
+  if((type===0x90||type===0xB0)&&d2>0&&d1===98){ songRecBtn.click(); return; }
   const p=noteToPad[d1]; if(!p) return;
   if(type===0x90&&d2>0){ triggerDown(p.r,p.c,d2); }
   else if(type===0x80||(type===0x90&&d2===0)){ triggerUp(p.r,p.c); }
