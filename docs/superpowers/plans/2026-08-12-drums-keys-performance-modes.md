@@ -314,7 +314,7 @@ async function testDrumsModePlaysKitNotBankClip(){
     perfMode='drums';
     drumKit[0][0] = ${JSON.stringify({name:'KitKick',gain:1}).replace('}',',buffer:{duration:0.5}}')};
     clips[0][0] = { buffer:{duration:1}, name:'BankLoop', mode:'loop' };
-    onMidiMessage({ data:[0x90, 11, 100] });   // nota 11 = pad (0,0) sulla griglia
+    onMidiMessage({ data:[0x90, 81, 100] });   // nota 81 = pad (0,0): padToNote(0,0)=11+(7-0)*10+0=81
     globalThis.__result = { oneShotCount: oneShots.length, playingRowOnBank: trackState[0].playingRow };
   `);
   const r = sb.__result;
@@ -342,7 +342,7 @@ async function testDrumsModeIgnoredWhenPerfModeNull(){
     ac();
     drumKit[0][0] = { buffer:{duration:1}, name:'Kick' };
     clips[0][0] = { buffer:{duration:1}, name:'BankLoop', mode:'loop' };
-    onMidiMessage({ data:[0x90, 11, 100] });   // perfMode=null: deve comportarsi come sempre (triggerDown sul banco)
+    onMidiMessage({ data:[0x90, 81, 100] });   // nota 81 = pad (0,0); perfMode=null: deve comportarsi come sempre (triggerDown sul banco)
     await new Promise(r=>setTimeout(r,60));
     globalThis.__result = { oneShotCount: oneShots.length, playingRowOnBank: trackState[0].playingRow };
   `);
@@ -466,9 +466,9 @@ async function testKeysNoteOnOffLifecycle(){
     selected.r=0; selected.c=0;
     clips[0][0] = { buffer:{duration:1}, name:'Bass', mode:'loop' };
     perfMode='keys';
-    onMidiMessage({ data:[0x90, 11, 100] });   // nota 11 = pad (0,0)
+    onMidiMessage({ data:[0x90, 81, 100] });   // nota 81 = pad (0,0): padToNote(0,0)=11+(7-0)*10+0=81
     const afterOn = Object.keys(keysSrc).length;
-    onMidiMessage({ data:[0x80, 11, 0] });     // note off
+    onMidiMessage({ data:[0x80, 81, 0] });     // note off
     globalThis.__result = { afterOn, afterOffCount: Object.keys(keysSrc).length };
   `);
   const r = sb.__result;
@@ -502,7 +502,7 @@ async function testKeysDoesNotAffectBankLoop(){
     selected.r=1; selected.c=1;
     clips[1][1] = { buffer:{duration:1}, name:'Instrument' };
     perfMode='keys';
-    onMidiMessage({ data:[0x90, 12, 100] });   // nota 12 = pad(1,1)? verifichiamo: 11+(7-1)*10+1=11+60+1=72, quindi uso 72
+    onMidiMessage({ data:[0x90, 72, 100] });   // nota 72 = pad (1,1): padToNote(1,1)=11+(7-1)*10+1=72
     globalThis.__result = { playingRowBefore, playingRowAfter: trackState[0].playingRow };
   `);
   const r = sb.__result;
@@ -525,7 +525,7 @@ async function testKeysDoesNotAffectBankLoop(){
   process.exit(failed ? 1 : 0);
 })();
 ```
-Nota: i numeri di nota nei test (53 per il pad (3,2), 11 per (0,0), 72 per (1,1)) sono già calcolati con `padToNote(r,c)=11+(7-r)*10+c` — se un test comunque fallisse con `keysSrcCount: 0`/simili, ricontrolla il calcolo prima di sospettare l'implementazione.
+Nota: i numeri di nota nei test (53 per il pad (3,2), 81 per (0,0), 72 per (1,1)) sono già calcolati con `padToNote(r,c)=11+(7-r)*10+c` — se un test comunque fallisse con `keysSrcCount: 0`/simili, ricontrolla il calcolo prima di sospettare l'implementazione.
 
 - [ ] **Step 2: Esegui e verifica che fallisca**
 
