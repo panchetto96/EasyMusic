@@ -1193,23 +1193,41 @@ function triggerUp(r,c){
   const clip=clips[r][c]; if(!clip) return;
   if((clip.mode||'loop')==='gate') stopGate(r,c);
 }
+// Il kit Drums e' monofonico: i pad contengono loop ritmici (2-5s), non colpi secchi, quindi lasciarli
+// sovrapporsi liberamente diventa presto un caos. Un solo colpo alla volta: premerne un altro (o
+// ripremere lo stesso) ferma subito quello in corso e fa partire il nuovo da capo.
+let drumVoice=null;   // {src,g} — l'unica voce Drums attualmente in corso, se c'e'
 function triggerDrumHit(r,c,velocity){
   const clip=drumKit[r][c]; if(!clip) return;
   ac().resume();
+  if(drumVoice){ const pv=drumVoice, pt=now(), F=0.006;
+    try{ pv.g.gain.setValueAtTime(pv.g.gain.value,pt); pv.g.gain.linearRampToValueAtTime(0,pt+F); pv.src.stop(pt+F+0.006); }catch(e){}
+    drumVoice=null;
+  }
   const {start:tS,end:tE}=trimBounds(clip);
   const src=ac().createBufferSource(); src.buffer=clip.buffer; src.loop=false; src.playbackRate.value=rateFor(clip);
   const vel=Math.max(0,Math.min(1,(velocity!=null?velocity:127)/127));
   const g=ac().createGain(); g.gain.setValueAtTime(0,now()); g.gain.linearRampToValueAtTime(gainFor(clip)*vel,now()+0.005);
   src.connect(g).connect(trackGains[c]); src.start(now(),tS,tE-tS); applyChoke(clip,src,g,now(),{col:c,row:r,kind:'oneshot'});
-  oneShots.push(src); src.onended=()=>{ oneShots=oneShots.filter(s=>s!==src); };
+  oneShots.push(src); src.onended=()=>{ oneShots=oneShots.filter(s=>s!==src); if(drumVoice&&drumVoice.src===src) drumVoice=null; };
+  drumVoice={src,g};
 }
+// Stessa logica monofonica di triggerDrumHit, ma per i pad one-shot dei banchi (modalita' normale):
+// premerne un altro (o ripremere lo stesso) ferma subito il colpo one-shot in corso e fa partire
+// il nuovo da capo, invece di lasciarli accavallare.
+let oneShotVoice=null;   // {src,g} — l'unico colpo one-shot di banco attualmente in corso, se c'e'
 function playOnce(r,c){
   ac().resume(); const clip=clips[r][c];
+  if(oneShotVoice){ const pv=oneShotVoice, pt=now(), F=0.006;
+    try{ pv.g.gain.setValueAtTime(pv.g.gain.value,pt); pv.g.gain.linearRampToValueAtTime(0,pt+F); pv.src.stop(pt+F+0.006); }catch(e){}
+    oneShotVoice=null;
+  }
   const {start:tS,end:tE}=trimBounds(clip);
   const src=ac().createBufferSource(); src.buffer=clip.buffer; src.loop=false; src.playbackRate.value=rateFor(clip);
   const g=ac().createGain(); g.gain.setValueAtTime(0,now()); g.gain.linearRampToValueAtTime(gainFor(clip),now()+0.005);
   src.connect(g).connect(trackGains[c]); src.start(now(),tS,tE-tS); applyChoke(clip,src,g,now(),{col:c,row:r,kind:'oneshot'});
-  oneShots.push(src); src.onended=()=>{ oneShots=oneShots.filter(s=>s!==src); };
+  oneShots.push(src); src.onended=()=>{ oneShots=oneShots.filter(s=>s!==src); if(oneShotVoice&&oneShotVoice.src===src) oneShotVoice=null; };
+  oneShotVoice={src,g};
   const el=padEls[r][c]; el.classList.add('playing'); setLed(r,c,3,'static');
   setTimeout(()=>{ el.classList.remove('playing'); updateLed(r,c); }, 220);
 }
