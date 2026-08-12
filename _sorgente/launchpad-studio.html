@@ -715,11 +715,17 @@ function onMidiMessage(ev){
   }
   // fila superiore del Launchpad (91-98) = stop della colonna. Ordine fisico confermato su hardware
   // reale: 91=Up 92=Down 93=Left 94=Right 95=Session 96=Drums 97=Keys 98=User (tutti CC 0xB0).
-  if((type===0x90||type===0xB0)&&d2>0&&d1>=91&&d1<=98){ stopTrackClip(d1-91,true); return; }
+  if((type===0x90||type===0xB0)&&d2>0&&d1>=91&&d1<=94){ stopTrackClip(d1-91,true); return; }
+  if((type===0x90||type===0xB0)&&d2>0&&d1===95){ if(perfMode!==null){ exitPerfMode(); } else { stopAll(); } return; }
+  if((type===0x90||type===0xB0)&&d2>0&&d1===96){ perfMode=(perfMode==='drums')?null:'drums'; onPerfModeChanged(); return; }
+  if((type===0x90||type===0xB0)&&d2>0&&d1===97){ perfMode=(perfMode==='keys')?null:'keys'; onPerfModeChanged(); return; }
+  if((type===0x90||type===0xB0)&&d2>0&&d1===98){ resyncAll(); return; }
   const p=noteToPad[d1]; if(!p) return;
   if(type===0x90&&d2>0){ triggerDown(p.r,p.c); }
   else if(type===0x80||(type===0x90&&d2===0)){ triggerUp(p.r,p.c); }
 }
+function exitPerfMode(){ perfMode=null; onPerfModeChanged(); }
+function onPerfModeChanged(){ renderAll(); refreshAllLeds(); }
 function setLed(r,c,color,mode='static'){
   if(!outPort) return;
   const st=mode==='pulse'?0x92:mode==='flash'?0x91:0x90;
