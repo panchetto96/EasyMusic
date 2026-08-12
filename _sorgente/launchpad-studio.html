@@ -721,6 +721,7 @@ function onMidiMessage(ev){
   if((type===0x90||type===0xB0)&&d2>0&&d1===97){ perfMode=(perfMode==='keys')?null:'keys'; onPerfModeChanged(); return; }
   if((type===0x90||type===0xB0)&&d2>0&&d1===98){ resyncAll(); return; }
   const p=noteToPad[d1]; if(!p) return;
+  if(perfMode==='drums'){ if(type===0x90&&d2>0){ triggerDrumHit(p.r,p.c,d2); } return; }
   if(type===0x90&&d2>0){ triggerDown(p.r,p.c); }
   else if(type===0x80||(type===0x90&&d2===0)){ triggerUp(p.r,p.c); }
 }
@@ -1112,6 +1113,16 @@ function triggerDown(r,c){
 function triggerUp(r,c){
   const clip=clips[r][c]; if(!clip) return;
   if((clip.mode||'loop')==='gate') stopGate(r,c);
+}
+function triggerDrumHit(r,c,velocity){
+  const clip=drumKit[r][c]; if(!clip) return;
+  ac().resume();
+  const {start:tS,end:tE}=trimBounds(clip);
+  const src=ac().createBufferSource(); src.buffer=clip.buffer; src.loop=false; src.playbackRate.value=rateFor(clip);
+  const vel=Math.max(0,Math.min(1,(velocity!=null?velocity:127)/127));
+  const g=ac().createGain(); g.gain.setValueAtTime(0,now()); g.gain.linearRampToValueAtTime(gainFor(clip)*vel,now()+0.005);
+  src.connect(g).connect(trackGains[c]); src.start(now(),tS,tE-tS); applyChoke(clip,src,g,now(),{col:c,row:r,kind:'oneshot'});
+  oneShots.push(src); src.onended=()=>{ oneShots=oneShots.filter(s=>s!==src); };
 }
 function playOnce(r,c){
   ac().resume(); const clip=clips[r][c];
