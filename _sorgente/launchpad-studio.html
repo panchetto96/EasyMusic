@@ -1580,6 +1580,32 @@ async function idbDel(key){ const db=await idbOpen(); return new Promise((res,re
   const tx=db.transaction(AUTOSAVE_STORE,'readwrite'); tx.objectStore(AUTOSAVE_STORE).delete(key);
   tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
 
+// ====================== KIT PERSONALIZZATI (IndexedDB) ======================
+// Stessa forma di un valore GENRES[key] (bpm/bars/phraseBars/master/filter/FX/tracks/clips), + id/name.
+// DB separato dall'autosave: sopravvive a un "Cancella autosave" e viceversa.
+const KIT_DB='lpstudioCustomKits', KIT_STORE='kits';
+function kitDbOpen(){ return new Promise((res,rej)=>{
+  if(typeof indexedDB==='undefined'){ rej(new Error('IndexedDB non disponibile')); return; }
+  const req=indexedDB.open(KIT_DB,1);
+  req.onupgradeneeded=()=>{ req.result.createObjectStore(KIT_STORE); };
+  req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error);
+}); }
+async function kitPut(kit){ const db=await kitDbOpen(); return new Promise((res,rej)=>{
+  const tx=db.transaction(KIT_STORE,'readwrite'); tx.objectStore(KIT_STORE).put(kit,kit.id);
+  tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
+async function kitGetAll(){ const db=await kitDbOpen(); return new Promise((res,rej)=>{
+  const tx=db.transaction(KIT_STORE,'readonly'); const rq=tx.objectStore(KIT_STORE).getAll();
+  rq.onsuccess=()=>res(rq.result||[]); rq.onerror=()=>rej(rq.error); }); }
+async function kitDelete(id){ const db=await kitDbOpen(); return new Promise((res,rej)=>{
+  const tx=db.transaction(KIT_STORE,'readwrite'); tx.objectStore(KIT_STORE).delete(id);
+  tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
+function newKitId(){ return 'kit-'+Date.now()+'-'+Math.random().toString(36).slice(2,8); }
+let customKits=[];   // dalla IndexedDB, popolato all'avvio; elencati nel <select> Genere da genre_ui.js
+async function loadCustomKitsFromDb(){
+  try{ customKits=await kitGetAll(); }catch(e){ customKits=[]; }
+  if(typeof refreshGenreSelectOptions==='function') refreshGenreSelectOptions();
+}
+
 function buildAutosaveSnapshot(){
   const out={version:1,ts:Date.now(),bpm,bars,quantMode,phraseBars,activeBank,
     master:audioCtx?+document.getElementById('master').value:1,
@@ -1867,6 +1893,7 @@ window.addEventListener('beforeunload',()=>{ if(outPort){ try{ outPort.send(SYSE
 // ====================== AVVIO ======================
 selectPad(0,0); renderAll(); initMIDI();
 checkAutosaveOnStartup().then(()=>{ if(typeof loadDrumKitPresetIfEmpty==='function') loadDrumKitPresetIfEmpty(); });
+loadCustomKitsFromDb();
 </script>
 </body>
 </html>
