@@ -68,7 +68,7 @@ per traccia: BufferSource -> Gain(fade) -> trackGains[c] -> trackLow[c](lowshelf
   - Nota 29 riservata: `cycleBank()` (cambia banco A→B→C→D→A…).
   - Nota 19 (in basso) riservata: `stopAll()`.
   - Le altre 6 (39,49,59,69,79,89) lanciano le scene normalmente.
-- Fila superiore = 91..98 → stop colonna.
+- Fila superiore = 91..94 → stop colonna; 95..98 (Session/Drums/Keys/User) → non più stop colonna, hanno un ruolo dedicato per le modalità performance, vedi §5.
 - LED: Note On, canale 1 statico (0x90), 2 flash (0x91), 3 pulse (0x92); velocity = indice palette Novation.
 - **Windows tranello**: la porta che controlla i LED è la SECONDA interfaccia (`MIDIIN2/MIDIOUT2 (LPMiniMK3 MIDI)`), NON quella dal nome pulito (che è la DAW). Vedi `pick()`.
 - **Nessun tasto fisico libero per il banco**: sul Mini MK3 griglia+riga superiore+colonna scene esauriscono tutti i controlli fisici — non c'è una "colonna laterale" separata come su Launchpad X/Pro. Per questo il cambio banco da pad è stato ottenuto sacrificando un tasto scena (nota 29), non aggiungendo un controllo nuovo.
