@@ -722,6 +722,11 @@ function onMidiMessage(ev){
   if((type===0x90||type===0xB0)&&d2>0&&d1===98){ resyncAll(); return; }
   const p=noteToPad[d1]; if(!p) return;
   if(perfMode==='drums'){ if(type===0x90&&d2>0){ triggerDrumHit(p.r,p.c,d2); } return; }
+  if(perfMode==='keys'){
+    if(type===0x90&&d2>0){ startKeysNote(p.r,p.c,d2); }
+    else if(type===0x80||(type===0x90&&d2===0)){ stopKeysNote(p.r,p.c); }
+    return;
+  }
   if(type===0x90&&d2>0){ triggerDown(p.r,p.c); }
   else if(type===0x80||(type===0x90&&d2===0)){ triggerUp(p.r,p.c); }
 }
@@ -1034,6 +1039,7 @@ function applyChoke(clip,src,gainNode,t,ctx){ const g=clip&&clip.choke; if(!g) r
 function applyRates(){ if(!audioCtx) return;
   for(let c=0;c<COLS;c++){ const ts=trackState[c]; if(ts.src&&ts.playingRow!=null){ const cl=clips[ts.playingRow][c]; if(cl){ try{ ts.src.playbackRate.setTargetAtTime(rateFor(cl),audioCtx.currentTime,0.03);}catch(e){} } } }
   for(const k in gateSrc){ const o=gateSrc[k], r=Math.floor(k/8), c=k%8, cl=clips[r][c]; if(cl&&o.src){ try{ o.src.playbackRate.setTargetAtTime(rateFor(cl),audioCtx.currentTime,0.03);}catch(e){} } }
+  for(const k in keysSrc){ const o=keysSrc[k], r=Math.floor(k/8), c=k%8, cl=clips[selected.r][selected.c]; if(cl&&o.src){ try{ o.src.playbackRate.setTargetAtTime(rateFor(cl)*Math.pow(2,keysPitchOffset(r,c)/12),audioCtx.currentTime,0.03);}catch(e){} } }
 }
 let bpmEditing=false;
 document.getElementById('bpm').addEventListener('focus',()=>{ if(!bpmEditing){ pushUndo(); bpmEditing=true; } });
@@ -1151,6 +1157,25 @@ function stopGate(r,c){
   const k=r*8+c, o=gateSrc[k];
   if(o){ const t=now(); try{ o.g.gain.setValueAtTime(o.g.gain.value,t); o.g.gain.linearRampToValueAtTime(0,t+0.006); o.src.stop(t+0.02);}catch(e){} delete gateSrc[k]; }
   padEls[r][c].classList.remove('playing'); updateLed(r,c);
+}
+const keysSrc={};   // note "Keys" attive: chiave r*8+c, stessa forma di gateSrc ma indipendente (non tocca trackState/gateSrc)
+function startKeysNote(r,c,velocity){
+  const clip=clips[selected.r][selected.c]; if(!clip) return;
+  ac().resume(); stopKeysNote(r,c);
+  const {start:tS,end:tE}=trimBounds(clip);
+  const src=ac().createBufferSource(); src.buffer=clip.buffer; src.loop=true; src.loopStart=tS; src.loopEnd=tE;
+  src.playbackRate.value=rateFor(clip)*Math.pow(2,keysPitchOffset(r,c)/12);
+  const vel=Math.max(0,Math.min(1,(velocity!=null?velocity:127)/127));
+  const g=ac().createGain(); g.gain.setValueAtTime(0,now()); g.gain.linearRampToValueAtTime(gainFor(clip)*vel,now()+0.005);
+  src.connect(g).connect(trackGains[selected.c]);
+  const grate=src.playbackRate.value||1, gper=(tE-tS)/grate;
+  let goff=tS; if(gper>0.0001 && playing){ let e=now()-startTime; e=((e%gper)+gper)%gper; goff=tS+e*grate; }
+  src.start(now(), goff);
+  keysSrc[r*8+c]={src,g};
+}
+function stopKeysNote(r,c){
+  const k=r*8+c, o=keysSrc[k];
+  if(o){ const t=now(); try{ o.g.gain.setValueAtTime(o.g.gain.value,t); o.g.gain.linearRampToValueAtTime(0,t+0.006); o.src.stop(t+0.02);}catch(e){} delete keysSrc[k]; }
 }
 // ---- SCENE LAUNCH: lancia un'intera riga su tutte le tracce, allineati ----
 function launchScene(r){
