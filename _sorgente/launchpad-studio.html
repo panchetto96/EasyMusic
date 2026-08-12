@@ -731,7 +731,7 @@ function onMidiMessage(ev){
   else if(type===0x80||(type===0x90&&d2===0)){ triggerUp(p.r,p.c); }
 }
 function exitPerfMode(){ perfMode=null; onPerfModeChanged(); }
-function onPerfModeChanged(){ renderAll(); refreshAllLeds(); }
+function onPerfModeChanged(){ selectPad(selected.r,selected.c); renderAll(); refreshAllLeds(); updatePerfModeUI(); }
 function setLed(r,c,color,mode='static'){
   if(!outPort) return;
   const st=mode==='pulse'?0x92:mode==='flash'?0x91:0x90;
@@ -850,13 +850,31 @@ const bankBtns=[];
 function updateBankUI(){ bankBtns.forEach((b,i)=>b.classList.toggle('on',i===activeBank)); }
 async function switchBank(i){ if(i===activeBank||i<0||i>=NBANKS) return;
   await stopAllSmooth(1.0);   // dissolvenza un po' piu' breve del cambio genere (1.2s): qui i suoni sono gia' decodificati, non c'e' attesa di caricamento
-  perfMode=null;
+  perfMode=null; updatePerfModeUI();
   activeBank=i; clips=banks[i]; selectPad(selected.r,selected.c); recomputeTrackColors(); renderAll(); refreshAllLeds(); updateBankUI(); }
 function cycleBank(){ switchBank((activeBank+1)%NBANKS); }
+let drumsKitBtn=null, keysBtn=null, perfModeBanner=null;
+function updatePerfModeUI(){
+  if(drumsKitBtn) drumsKitBtn.classList.toggle('on', perfMode==='drums');
+  if(keysBtn) keysBtn.classList.toggle('on', perfMode==='keys');
+  if(perfModeBanner){
+    if(perfMode==='drums'){ perfModeBanner.style.display=''; perfModeBanner.textContent='🥁 Modalità Drums Kit — i pad suonano il kit dedicato (colpi one-shot)'; }
+    else if(perfMode==='keys'){ perfModeBanner.style.display=''; const cl=clips[selected.r][selected.c]; perfModeBanner.textContent='🎹 Modalità Keys — i pad suonano "'+(cl?cl.name:'(nessun clip selezionato)')+'" a intonazioni diverse'; }
+    else { perfModeBanner.style.display='none'; }
+  }
+}
 (function(){
   const bb=document.getElementById('bankBar');
   const lbl=document.createElement('span'); lbl.textContent='Bank'; lbl.style.cssText='font-size:12px;color:var(--dim);margin-right:4px'; bb.appendChild(lbl);
   for(let i=0;i<NBANKS;i++){ const b=document.createElement('button'); b.className='act'+(i===0?' on':''); b.textContent=String.fromCharCode(65+i); b.style.padding='6px 11px'; b.onclick=()=>switchBank(i); bb.appendChild(b); bankBtns.push(b); }
+  drumsKitBtn=document.createElement('button'); drumsKitBtn.className='act'; drumsKitBtn.textContent='🥁 Drums Kit'; drumsKitBtn.style.cssText='padding:6px 11px;margin-left:8px';
+  drumsKitBtn.onclick=()=>{ perfMode=(perfMode==='drums')?null:'drums'; onPerfModeChanged(); };
+  bb.appendChild(drumsKitBtn);
+  keysBtn=document.createElement('button'); keysBtn.className='act'; keysBtn.textContent='🎹 Keys'; keysBtn.style.cssText='padding:6px 11px;margin-left:4px';
+  keysBtn.onclick=()=>{ perfMode=(perfMode==='keys')?null:'keys'; onPerfModeChanged(); };
+  bb.appendChild(keysBtn);
+  perfModeBanner=document.createElement('div'); perfModeBanner.style.cssText='display:none;margin-top:6px;padding:6px 10px;background:#20242e;border:1px solid #2c313d;border-radius:8px;font-size:12px;color:var(--accent)';
+  bb.parentNode.insertBefore(perfModeBanner, bb.nextSibling);
 })();
 
 // ---- STEP SEQUENCER (16 step) per il pad selezionato ----
