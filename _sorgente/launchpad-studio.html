@@ -1293,24 +1293,33 @@ function decodeCatalogClip(genre,idx){
   return catalogBufferCache.get(key);
 }
 // Anteprima da catalogo: monofonica, stessa dissolvenza-poi-stop gia' usata da oneShotVoice/drumVoice.
-let previewSrc=null;   // {src,g,key} — l'anteprima in corso, o null
+// previewSrc funge anche da "reclamo" per chiamate concorrenti: viene assegnato SUBITO, prima
+// dell'await della decodifica (src/g restano null finche' la decodifica non finisce), cosi' una
+// seconda chiamata che arriva mentre la prima sta ancora decodificando vede gia' il reclamo invece
+// di correre fino all'assegnazione post-await (altrimenti la prima voce resterebbe orfana, mai
+// fermata, sovrascritta silenziosamente dalla seconda).
+let previewSrc=null;   // {src,g,key} — src/g sono null finche' la decodifica e' in corso
 async function previewCatalogClip(genre,idx){
   const key=genre+'|'+idx;
-  if(previewSrc && previewSrc.key===key){ stopCatalogPreview(); return; }   // riclic sullo stesso: ferma
+  if(previewSrc && previewSrc.key===key){ stopCatalogPreview(); return; }   // riclic sullo stesso (anche solo in decodifica): ferma
   stopCatalogPreview();
   ac().resume();
+  const claim={key,src:null,g:null};
+  previewSrc=claim;
   const buffer=await decodeCatalogClip(genre,idx);
+  if(previewSrc!==claim) return;   // superata da un'altra chiamata mentre decodificava: niente voce orfana
   const src=ac().createBufferSource(); src.buffer=buffer; src.loop=false;
   const g=ac().createGain(); g.gain.setValueAtTime(0,now()); g.gain.linearRampToValueAtTime(1,now()+0.005);
   src.connect(g).connect(masterGain); src.start(now());
   oneShots.push(src); src.onended=()=>{ oneShots=oneShots.filter(s=>s!==src); if(previewSrc&&previewSrc.src===src) previewSrc=null; };
-  previewSrc={src,g,key};
+  claim.src=src; claim.g=g;
 }
 function stopCatalogPreview(){
   if(!previewSrc) return;
-  const pv=previewSrc, pt=now(), F=0.006;
+  const pv=previewSrc; previewSrc=null;
+  if(!pv.src) return;   // decodifica ancora in corso: nessuna voce da fermare, il reclamo scaduto blocchera' l'await sospeso
+  const pt=now(), F=0.006;
   try{ pv.g.gain.setValueAtTime(pv.g.gain.value,pt); pv.g.gain.linearRampToValueAtTime(0,pt+F); pv.src.stop(pt+F+0.006); }catch(e){}
-  previewSrc=null;
 }
 function startGate(r,c){
   ac().resume(); stopGate(r,c);
