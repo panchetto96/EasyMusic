@@ -709,7 +709,8 @@ function onMidiMessage(ev){
     if(d1===19){ stopAll(); return; }
     launchScene(7-(d1-19)/10); return;
   }
-  // fila superiore del Launchpad (91-98) = stop della colonna
+  // fila superiore del Launchpad (91-98) = stop della colonna. Ordine fisico confermato su hardware
+  // reale: 91=Up 92=Down 93=Left 94=Right 95=Session 96=Drums 97=Keys 98=User (tutti CC 0xB0).
   if((type===0x90||type===0xB0)&&d2>0&&d1>=91&&d1<=98){ stopTrackClip(d1-91,true); return; }
   const p=noteToPad[d1]; if(!p) return;
   if(type===0x90&&d2>0){ triggerDown(p.r,p.c); }
