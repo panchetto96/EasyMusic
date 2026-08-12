@@ -454,7 +454,7 @@ async function testKeysPlaysSelectedClipAtOffsetPitch(){
     selected.r=3; selected.c=2;
     clips[3][2] = { buffer:{duration:1}, name:'Bass', mode:'loop', pitch:0 };
     perfMode='keys';
-    onMidiMessage({ data:[0x90, 44, 100] });   // nota 44 = pad (3,2) sulla griglia (11+(7-3)*10+2=11+40+2=53? verifichiamo sotto)
+    onMidiMessage({ data:[0x90, 53, 100] });   // nota 53 = pad (3,2) sulla griglia: padToNote(3,2)=11+(7-3)*10+2=53
     globalThis.__result = { keysSrcCount: Object.keys(keysSrc).length };
   `);
   assert.strictEqual(sb.__result.keysSrcCount, 1, 'una nota Keys deve creare una voce attiva in keysSrc');
@@ -525,7 +525,7 @@ async function testKeysDoesNotAffectBankLoop(){
   process.exit(failed ? 1 : 0);
 })();
 ```
-Nota: nel primo test l'esatto numero di nota (44) è indicativo — se `padToNote(3,2)` non restituisce 44, il test fallirà con un errore chiaro (`keysSrcCount: 0`); in tal caso ricalcola con `padToNote(r,c)=11+(7-r)*10+c` e correggi il valore nel test PRIMA di procedere allo Step 3 (è un dettaglio del test, non dell'implementazione).
+Nota: i numeri di nota nei test (53 per il pad (3,2), 11 per (0,0), 72 per (1,1)) sono già calcolati con `padToNote(r,c)=11+(7-r)*10+c` — se un test comunque fallisse con `keysSrcCount: 0`/simili, ricontrolla il calcolo prima di sospettare l'implementazione.
 
 - [ ] **Step 2: Esegui e verifica che fallisca**
 
