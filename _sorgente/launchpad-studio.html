@@ -776,7 +776,7 @@ for(let c=0;c<COLS;c++){ const d=document.createElement('div'); d.textContent='T
 for(let r=0;r<ROWS;r++){ padEls.push([]);
   for(let c=0;c<COLS;c++){
     const el=document.createElement('div'); el.className='pad'; el.dataset.r=r; el.dataset.c=c;
-    el.onpointerdown=(e)=>{ e.preventDefault(); triggerDown(r,c); };
+    el.onpointerdown=(e)=>{ e.preventDefault(); if(perfMode==='drums') selectPad(r,c); triggerDown(r,c); };
     el.onpointerup=()=>triggerUp(r,c);
     el.onpointerleave=()=>triggerUp(r,c);
     el.ondragover=(e)=>{e.preventDefault();el.classList.add('dragover');};
@@ -1159,11 +1159,16 @@ const gateSrc={};   // pad tenuti premuti (modo gate): chiave r*8+c -> source
 // NB: in Keys mode NON si chiama selectPad(r,c) qui — "selected" e' lo strumento scelto in precedenza
 // (il clip che l'intera griglia suona a intonazioni diverse); farlo scattare ad ogni nota premuta
 // romperebbe il concetto stesso di "tastiera" (ogni pad diventerebbe il proprio strumento, quasi
-// sempre vuoto). In Drums mode invece selectPad(r,c) resta utile e voluto: e' cosi' che cliccare un
-// pad del kit lo seleziona per caricarci dentro un sample (bottone "Carica file").
+// sempre vuoto). In Drums mode NEMMENO qui: selectPad(r,c) e' costoso (renderAll+drawWaveform+renderSeq,
+// sync, PRIMA che l'audio parta) e "selected" e' anche il puntatore allo strumento di Keys mode — se un
+// colpo MIDI del kit lo ripuntasse ad ogni hit, un giro di batteria dal Launchpad fisico dirotterebbe
+// silenziosamente lo strumento di Keys sull'ultimo pad colpito, e aggiungerebbe latenza a ogni colpo.
+// La selezione "clicca un pad del kit per caricarci un sample" resta, ma e' un concetto di editor da
+// mouse: la gestisce il click handler (el.onpointerdown) chiamando selectPad(r,c) PRIMA di triggerDown,
+// cosi' l'audio del colpo fisico parte subito e non viene mai toccato "selected".
 function triggerDown(r,c,velocity){
   const vel=(velocity!=null)?velocity:127;
-  if(perfMode==='drums'){ selectPad(r,c); triggerDrumHit(r,c,vel); return; }
+  if(perfMode==='drums'){ triggerDrumHit(r,c,vel); return; }
   if(perfMode==='keys'){ startKeysNote(r,c,vel); return; }
   selectPad(r,c);
   const clip=clips[r][c]; if(!clip) return;
