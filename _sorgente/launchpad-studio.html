@@ -505,6 +505,10 @@ const COLS=8, ROWS=8;
 const NBANKS=4;
 const banks=[]; for(let b=0;b<NBANKS;b++){ const g=[]; for(let r=0;r<ROWS;r++) g.push(new Array(COLS).fill(null)); banks.push(g); }
 let activeBank=0, clips=banks[0];
+let perfMode=null;   // null | 'drums' | 'keys' — overlay di performance sui 4 tasti superiori (Session/Drums/Keys/User)
+let drumKit=new Array(ROWS).fill(null).map(()=>new Array(COLS).fill(null));   // griglia 8x8 indipendente dai banchi, per la modalita' Drums
+function activeGrid(){ return perfMode==='drums' ? drumKit : clips; }
+function keysPitchOffset(r,c){ return (7-r)*5 + c; }   // layout isomorfo a quarte: riga 0 (alto) = piu' acuta
 const trackColors=['#4ea1ff','#39d98a','#ffd23f','#ff7ac2','#b98bff','#ff9a3f','#3fe0d0','#ff5c5c'];
 let trackColorIdx=[0,1,2,3,4,5,6,7];   // colonne dello stesso "tipo" (categoria dedotta dal nome dei clip) condividono l'indice colore
 function categoryOf(name){ const n=(name||'').trim().toLowerCase(); const stripped=n.replace(/[\s_]*\d+[A-Za-z]?(-\d+)?\s*$/,'').trim(); return stripped||n; }
