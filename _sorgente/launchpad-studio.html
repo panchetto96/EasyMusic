@@ -737,10 +737,23 @@ function setLed(r,c,color,mode='static'){
   const st=mode==='pulse'?0x92:mode==='flash'?0x91:0x90;
   try{ outPort.send([st,padToNote(r,c),color]); }catch(e){}
 }
+function setTopLed(index,color,mode='static'){
+  if(!outPort) return;
+  const st=mode==='pulse'?0x92:mode==='flash'?0x91:0x90;
+  try{ outPort.send([st,91+index,color]); }catch(e){}
+}
 function padColorIndex(c){ return [45,21,13,53,49,9,37,5][trackColorIdx[c]%8]; }
 function refreshAllLeds(){ for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) updateLed(r,c);
-  if(outPort){ for(let r=0;r<ROWS;r++){ try{ outPort.send([0x90,19+(7-r)*10,37]); }catch(e){} } } }
+  if(outPort){ for(let r=0;r<ROWS;r++){ try{ outPort.send([0x90,19+(7-r)*10,37]); }catch(e){} } }
+  setTopLed(0,3,'static'); setTopLed(1,3,'static'); setTopLed(2,3,'static'); setTopLed(3,3,'static');   // Up/Down/Left/Right, neutro
+  setTopLed(4,3,'static');                                    // Session (non e' un toggle)
+  setTopLed(5,perfMode==='drums'?5:3,'static');                // Drums
+  setTopLed(6,perfMode==='keys'?37:3,'static');                // Keys
+  setTopLed(7,3,'static');                                     // User (non e' un toggle)
+}
 function updateLed(r,c){
+  if(perfMode==='drums'){ setLed(r,c, drumKit[r][c]?9:0, 'static'); return; }
+  if(perfMode==='keys'){ setLed(r,c,37,'static'); return; }
   const ts=trackState[c];
   // una traccia mutata (o silenziata perche' un'altra e' in solo) e' logicamente "in play"/"in coda"
   // ma inudibile: il LED non deve sembrare identico a una traccia che sta davvero suonando.
