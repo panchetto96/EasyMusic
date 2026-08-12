@@ -110,6 +110,7 @@
         (o "Carica") per assegnarlo. Premi il pad sul Launchpad: il loop parte a tempo e in una traccia
         suona una clip alla volta. Sotto ogni traccia: volume, <b>M</b>ute, <b>S</b>olo.
       </div>
+      <span id="dropStatus" class="hint" style="display:block;margin-top:6px;min-height:14px"></span>
     </div>
 
     <div class="panel">
@@ -520,6 +521,13 @@ function recomputeTrackColors(){
     if(cat && assigned[cat]!=null){ trackColorIdx[c]=assigned[cat]; }
     else{ trackColorIdx[c]=next%trackColors.length; if(cat) assigned[cat]=trackColorIdx[c]; next++; } }
 }
+// Come recomputeTrackColors ma restituisce la categoria grezza (non un indice colore) di UNA colonna,
+// usata per validare i piazzamenti dal catalogo — trackColorIdx non e' affidabile qui perche' viene
+// ricalcolato solo in alcuni momenti (cambio banco/genere), non ad ogni singolo piazzamento.
+function columnCategoryOf(grid,c){
+  for(let r=0;r<ROWS;r++){ if(grid[r][c]) return categoryOf(grid[r][c].name); }
+  return null;
+}
 const tracks=new Array(COLS).fill(null).map(()=>({volume:1.0,muted:false,solo:false,low:0,high:0,revSend:0,dlySend:0}));
 let oneShots=[];
 
@@ -813,7 +821,7 @@ for(let r=0;r<ROWS;r++){ padEls.push([]);
       if(perfMode==='drums') selectPad(r,c); triggerDown(r,c);
     };
     el.onpointerup=()=>{ if(dragSource){ completeDrag(r,c); return; } triggerUp(r,c); };
-    el.onpointerenter=()=>{ if(dragSource && dragSource.kind==='pad' && isValidPadMoveTarget(dragSource,r,c)) el.classList.add('dragover'); };
+    el.onpointerenter=()=>{ if(isValidDropTarget(dragSource,r,c)) el.classList.add('dragover'); };
     el.onpointerleave=()=>{ el.classList.remove('dragover'); if(dragSource) return; triggerUp(r,c); };
     el.oncontextmenu=(e)=>{ e.preventDefault(); setPadOneShot(r,c); };   // tasto destro = scorciatoia "imposta one-shot"
     el.ondragover=(e)=>{e.preventDefault();el.classList.add('dragover');};
@@ -1064,6 +1072,7 @@ function completeDrag(r,c){
   const src=dragSource; dragSource=null;
   if(!src) return;
   if(src.kind==='pad') return completePadMove(src,r,c);
+  if(src.kind==='catalog') return completeCatalogPlace(src,r,c);
 }
 // Ctrl+trascinamento tra pad (vedi onpointerdown/up sui pad piu' sopra): sposta il contenuto sul pad
 // di destinazione, o li scambia se era gia' occupato. Ammesso solo tra colonne dello stesso "tipo"
@@ -1320,6 +1329,43 @@ function stopCatalogPreview(){
   if(!pv.src) return;   // decodifica ancora in corso: nessuna voce da fermare, il reclamo scaduto blocchera' l'await sospeso
   const pt=now(), F=0.006;
   try{ pv.g.gain.setValueAtTime(pv.g.gain.value,pt); pv.g.gain.linearRampToValueAtTime(0,pt+F); pv.src.stop(pt+F+0.006); }catch(e){}
+}
+let dropStatusTimer=null;
+function showDropStatus(msg){
+  const el=document.getElementById('dropStatus'); if(!el) return;
+  el.textContent=msg;
+  clearTimeout(dropStatusTimer);
+  dropStatusTimer=setTimeout(()=>{ el.textContent=''; }, 2500);
+}
+function isValidDropTarget(src,r,c){
+  if(!src) return false;
+  if(src.kind==='pad') return isValidPadMoveTarget(src,r,c);
+  if(src.kind==='catalog'){
+    if(clips[r][c]) return false;
+    const cat=categoryOf(GENRES[src.genre].clips[src.idx].name);
+    const colCat=columnCategoryOf(clips,c);
+    return colCat===null || colCat===cat;
+  }
+  return false;
+}
+// Completa un Ctrl+trascinamento dal pannello Catalogo suoni (vedi completeDrag/isValidDropTarget).
+// Valido solo su pad vuoto e colonna libera o della stessa categoria; mai in Drums mode (il catalogo
+// alimenta solo i banchi). Dopo un piazzamento riuscito ricalcola i colori-per-categoria, a differenza
+// del trascinamento pad-a-pad: qui e' proprio il punto, l'utente deve vedere l'auto-organizzazione live.
+async function completeCatalogPlace(src,r,c){
+  if(perfMode==='drums') return;
+  const cl=GENRES[src.genre].clips[src.idx];
+  const cat=categoryOf(cl.name);
+  if(clips[r][c]){ showDropStatus('Pad occupato'); return; }
+  const colCat=columnCategoryOf(clips,c);
+  if(colCat!==null && colCat!==cat){ showDropStatus('Nessun posto libero per «'+cat+'»'); return; }
+  const buffer=await decodeCatalogClip(src.genre,src.idx);
+  if(clips[r][c]) return;   // occupato nel frattempo (decodifica asincrona): abbandona senza sovrascrivere
+  pushUndo();
+  const raw=b64ToAb(cl.data);
+  clips[r][c]={buffer,name:cl.name,raw,mime:cl.mime,mode:cl.mode||'loop',sourceBpm:GENRES[src.genre].bpm,
+    trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null};
+  recomputeTrackColors(); renderPad(r,c); updateLed(r,c);
 }
 function startGate(r,c){
   ac().resume(); stopGate(r,c);
