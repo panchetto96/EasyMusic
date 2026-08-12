@@ -17,9 +17,7 @@
     pushUndo();
     loadingSet=true;
     await stopAllSmooth(1.2);
-    // stopAllSmooth->stopAll gia' scarica keysSrc, ma qui si sta per sostituire clips interi: uscire
-    // esplicitamente da Drums/Keys evita di restare a guardare un kit/banco che non esiste piu'.
-    stopAllKeysNotes(); perfMode=null;
+    perfMode=null;   // esce dalla modalita' Drums: qui si sta per sostituire clips interi
     bpm=data.bpm||120; document.getElementById('bpm').value=bpm; document.getElementById('bpmVal').textContent=bpm;
     bars=data.bars||4; document.getElementById('bars').value=([1,2,4,8].includes(bars)?bars:4);
     quantMode='off'; document.getElementById('quant').value='off';

@@ -4,6 +4,7 @@
 # Si rigenerano da _sorgente/ con assemble.py (vedi SVILUPPO.md §6).
 Launchpad Studio.html
 _sorgente/genres.json
+_sorgente/drumkit_preset.json
 Launchpad Sets/
 _Archivio/
 Registrazioni/
