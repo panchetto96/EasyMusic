@@ -17,6 +17,9 @@
     pushUndo();
     loadingSet=true;
     await stopAllSmooth(1.2);
+    // stopAllSmooth->stopAll gia' scarica keysSrc, ma qui si sta per sostituire clips interi: uscire
+    // esplicitamente da Drums/Keys evita di restare a guardare un kit/banco che non esiste piu'.
+    stopAllKeysNotes(); perfMode=null;
     bpm=data.bpm||120; document.getElementById('bpm').value=bpm; document.getElementById('bpmVal').textContent=bpm;
     bars=data.bars||4; document.getElementById('bars').value=([1,2,4,8].includes(bars)?bars:4);
     quantMode='off'; document.getElementById('quant').value='off';
@@ -39,7 +42,7 @@
     for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) clips[r][c]=null;
     let ok=0;
     for(const cl of data.clips){ try{ const ab=b64ToAb(cl.data); const raw=ab.slice(0); const audio=await ac().decodeAudioData(ab); clips[cl.r][cl.c]={buffer:audio,name:cl.name,raw,mime:cl.mime,mode:cl.mode||'loop',sourceBpm:data.bpm,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null}; ok++; }catch(e){} }
-    applyMix(); applyTrackFX(); recomputeTrackColors(); renderAll(); refreshAllLeds();
+    applyMix(); applyTrackFX(); recomputeTrackColors(); renderAll(); refreshAllLeds(); updatePerfModeUI();
     loadingSet=false;
     doAutosave();
     stat.textContent=key+' ✓ ('+ok+' loop)';

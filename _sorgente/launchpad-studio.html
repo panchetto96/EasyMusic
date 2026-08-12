@@ -713,24 +713,29 @@ function onMidiMessage(ev){
     if(d1===19){ stopAll(); return; }
     launchScene(7-(d1-19)/10); return;
   }
-  // fila superiore del Launchpad (91-98) = stop della colonna. Ordine fisico confermato su hardware
-  // reale: 91=Up 92=Down 93=Left 94=Right 95=Session 96=Drums 97=Keys 98=User (tutti CC 0xB0).
+  // fila superiore del Launchpad: 91-94 = stop della colonna; 95-98 (Session/Drums/Keys/User) non fermano
+  // più una colonna, hanno un ruolo dedicato per le modalità performance (vedi SVILUPPO.md §5). Ordine
+  // fisico confermato su hardware reale: 91=Up 92=Down 93=Left 94=Right 95=Session 96=Drums 97=Keys 98=User (tutti CC 0xB0).
   if((type===0x90||type===0xB0)&&d2>0&&d1>=91&&d1<=94){ stopTrackClip(d1-91,true); return; }
   if((type===0x90||type===0xB0)&&d2>0&&d1===95){ if(perfMode!==null){ exitPerfMode(); } else { stopAll(); } return; }
-  if((type===0x90||type===0xB0)&&d2>0&&d1===96){ perfMode=(perfMode==='drums')?null:'drums'; onPerfModeChanged(); return; }
-  if((type===0x90||type===0xB0)&&d2>0&&d1===97){ perfMode=(perfMode==='keys')?null:'keys'; onPerfModeChanged(); return; }
+  if((type===0x90||type===0xB0)&&d2>0&&d1===96){ togglePerfMode('drums'); return; }
+  if((type===0x90||type===0xB0)&&d2>0&&d1===97){ togglePerfMode('keys'); return; }
   if((type===0x90||type===0xB0)&&d2>0&&d1===98){ resyncAll(); return; }
   const p=noteToPad[d1]; if(!p) return;
-  if(perfMode==='drums'){ if(type===0x90&&d2>0){ triggerDrumHit(p.r,p.c,d2); } return; }
-  if(perfMode==='keys'){
-    if(type===0x90&&d2>0){ startKeysNote(p.r,p.c,d2); }
-    else if(type===0x80||(type===0x90&&d2===0)){ stopKeysNote(p.r,p.c); }
-    return;
-  }
-  if(type===0x90&&d2>0){ triggerDown(p.r,p.c); }
+  if(type===0x90&&d2>0){ triggerDown(p.r,p.c,d2); }
   else if(type===0x80||(type===0x90&&d2===0)){ triggerUp(p.r,p.c); }
 }
-function exitPerfMode(){ perfMode=null; onPerfModeChanged(); }
+// Punto unico di uscita da una modalita' performance: azzera perfMode, scarica ogni voce Keys tenuta
+// premuta (altrimenti resterebbe a suonare in loop senza che nessun percorso di stop la fermi piu'), poi
+// aggiorna la UI. No-op economico (solo flush voci) se perfMode e' gia' null, per non sprecare un giro
+// di renderAll()/refreshAllLeds() ogni volta che viene chiamato da percorsi che potrebbero gia' essere fuori
+// da una perf-mode (es. switchBank).
+function exitPerfMode(){
+  if(perfMode===null){ stopAllKeysNotes(); return; }
+  perfMode=null; stopAllKeysNotes(); onPerfModeChanged();
+}
+// Entra/esce da una perf-mode (toggle): usato dai due CC dedicati e dai bottoni a schermo omologhi.
+function togglePerfMode(mode){ perfMode=(perfMode===mode)?null:mode; stopAllKeysNotes(); onPerfModeChanged(); }
 function onPerfModeChanged(){ selectPad(selected.r,selected.c); renderAll(); refreshAllLeds(); updatePerfModeUI(); }
 function setLed(r,c,color,mode='static'){
   if(!outPort) return;
@@ -850,7 +855,7 @@ const bankBtns=[];
 function updateBankUI(){ bankBtns.forEach((b,i)=>b.classList.toggle('on',i===activeBank)); }
 async function switchBank(i){ if(i===activeBank||i<0||i>=NBANKS) return;
   await stopAllSmooth(1.0);   // dissolvenza un po' piu' breve del cambio genere (1.2s): qui i suoni sono gia' decodificati, non c'e' attesa di caricamento
-  perfMode=null; updatePerfModeUI();
+  exitPerfMode();   // esce da Drums/Keys (e scarica eventuali voci Keys tenute) PRIMA di riassegnare clips al nuovo banco
   activeBank=i; clips=banks[i]; selectPad(selected.r,selected.c); recomputeTrackColors(); renderAll(); refreshAllLeds(); updateBankUI(); }
 function cycleBank(){ switchBank((activeBank+1)%NBANKS); }
 let drumsKitBtn=null, keysBtn=null, perfModeBanner=null;
@@ -862,16 +867,21 @@ function updatePerfModeUI(){
     else if(perfMode==='keys'){ perfModeBanner.style.display=''; const cl=clips[selected.r][selected.c]; perfModeBanner.textContent='🎹 Modalità Keys — i pad suonano "'+(cl?cl.name:'(nessun clip selezionato)')+'" a intonazioni diverse'; }
     else { perfModeBanner.style.display='none'; }
   }
+  // il kit Drums non ha un campo "mode" persistito (i colpi sono sempre one-shot): il controllo Loop/One-shot/Gate
+  // non ha alcun effetto udibile mentre si guarda il kit, quindi va disattivato per non ingannare chi lo usa.
+  const pmSel=document.getElementById('padMode'), pmCol=document.getElementById('padModeCol');
+  if(pmSel) pmSel.disabled=(perfMode==='drums');
+  if(pmCol) pmCol.disabled=(perfMode==='drums');
 }
 (function(){
   const bb=document.getElementById('bankBar');
   const lbl=document.createElement('span'); lbl.textContent='Bank'; lbl.style.cssText='font-size:12px;color:var(--dim);margin-right:4px'; bb.appendChild(lbl);
   for(let i=0;i<NBANKS;i++){ const b=document.createElement('button'); b.className='act'+(i===0?' on':''); b.textContent=String.fromCharCode(65+i); b.style.padding='6px 11px'; b.onclick=()=>switchBank(i); bb.appendChild(b); bankBtns.push(b); }
   drumsKitBtn=document.createElement('button'); drumsKitBtn.className='act'; drumsKitBtn.textContent='🥁 Drums Kit'; drumsKitBtn.style.cssText='padding:6px 11px;margin-left:8px';
-  drumsKitBtn.onclick=()=>{ perfMode=(perfMode==='drums')?null:'drums'; onPerfModeChanged(); };
+  drumsKitBtn.onclick=()=>{ togglePerfMode('drums'); };
   bb.appendChild(drumsKitBtn);
   keysBtn=document.createElement('button'); keysBtn.className='act'; keysBtn.textContent='🎹 Keys'; keysBtn.style.cssText='padding:6px 11px;margin-left:4px';
-  keysBtn.onclick=()=>{ perfMode=(perfMode==='keys')?null:'keys'; onPerfModeChanged(); };
+  keysBtn.onclick=()=>{ togglePerfMode('keys'); };
   bb.appendChild(keysBtn);
   perfModeBanner=document.createElement('div'); perfModeBanner.style.cssText='display:none;margin-top:6px;padding:6px 10px;background:#20242e;border:1px solid #2c313d;border-radius:8px;font-size:12px;color:var(--accent)';
   bb.parentNode.insertBefore(perfModeBanner, bb.nextSibling);
@@ -890,9 +900,14 @@ const SEQLEN=16; let seqCells=[];
   row.appendChild(clr); sq.appendChild(row);
 })();
 function ensureSteps(cl){ if(!cl.steps) cl.steps=new Array(SEQLEN).fill(false); return cl.steps; }
-function toggleStep(i){ const cl=clips[selected.r][selected.c]; if(!cl) return; pushUndo(); ensureSteps(cl)[i]=!cl.steps[i]; renderSeq(); }
-function clearSteps(){ const cl=clips[selected.r][selected.c]; if(cl){ pushUndo(); cl.steps=null; renderSeq(); } }
-function renderSeq(){ const cl=clips[selected.r][selected.c], steps=(cl&&cl.steps)||null;
+// Il kit Drums non ha concetto di step sequencer (un pad kit non ha un campo "steps"): mentre si guarda
+// il kit, tutte e tre le funzioni diventano inerti/no-op. In Keys, "selected" punta ancora a un vero clip
+// di banco, quindi il pattern resta significativo e va lasciato modificabile come in modalita' normale.
+function toggleStep(i){ if(perfMode==='drums') return; const cl=clips[selected.r][selected.c]; if(!cl) return; pushUndo(); ensureSteps(cl)[i]=!cl.steps[i]; renderSeq(); }
+function clearSteps(){ if(perfMode==='drums') return; const cl=clips[selected.r][selected.c]; if(cl){ pushUndo(); cl.steps=null; renderSeq(); } }
+function renderSeq(){
+  if(perfMode==='drums'){ for(let i=0;i<SEQLEN;i++){ seqCells[i].style.background='var(--panel2)'; } return; }
+  const cl=clips[selected.r][selected.c], steps=(cl&&cl.steps)||null;
   for(let i=0;i<SEQLEN;i++){ seqCells[i].style.background=(steps&&steps[i])?'var(--accent)':'var(--panel2)'; } }
 function highlightStep(idx){ for(let i=0;i<SEQLEN;i++){ seqCells[i].style.outline=(i===idx)?'2px solid #fff':''; seqCells[i].style.outlineOffset='-1px'; } }
 function playClipAt(r,c,when){ const clip=clips[r][c]; if(!clip) return;
@@ -923,7 +938,8 @@ function applyTrackFX(){
 }
 function renderPad(r,c){
   const el=padEls[r][c], clip=activeGrid()[r][c], ts=trackState[c];
-  const showPlayState = perfMode===null;   // in Drums/Keys lo stato di trackState appartiene al banco, non al kit: non mostrarlo
+  const showPlayState = perfMode!=='drums';   // il kit Drums non ha un concetto di play/queued (colpi one-shot fissi): nascondilo li'.
+                                               // Keys invece mostra ancora clip di banco reali (clips), quindi lo stato resta informativo.
   el.classList.toggle('loaded',!!clip);
   el.classList.toggle('playing', showPlayState && ts.playingRow===r);
   el.classList.toggle('queued', showPlayState && ts.queuedRow===r);
@@ -1072,7 +1088,7 @@ function applyChoke(clip,src,gainNode,t,ctx){ const g=clip&&clip.choke; if(!g) r
 function applyRates(){ if(!audioCtx) return;
   for(let c=0;c<COLS;c++){ const ts=trackState[c]; if(ts.src&&ts.playingRow!=null){ const cl=clips[ts.playingRow][c]; if(cl){ try{ ts.src.playbackRate.setTargetAtTime(rateFor(cl),audioCtx.currentTime,0.03);}catch(e){} } } }
   for(const k in gateSrc){ const o=gateSrc[k], r=Math.floor(k/8), c=k%8, cl=clips[r][c]; if(cl&&o.src){ try{ o.src.playbackRate.setTargetAtTime(rateFor(cl),audioCtx.currentTime,0.03);}catch(e){} } }
-  for(const k in keysSrc){ const o=keysSrc[k], r=Math.floor(k/8), c=k%8, cl=clips[selected.r][selected.c]; if(cl&&o.src){ try{ o.src.playbackRate.setTargetAtTime(rateFor(cl)*Math.pow(2,keysPitchOffset(r,c)/12),audioCtx.currentTime,0.03);}catch(e){} } }
+  for(const k in keysSrc){ const o=keysSrc[k], r=Math.floor(k/8), c=k%8, cl=o.clip; if(cl&&o.src){ try{ o.src.playbackRate.setTargetAtTime(rateFor(cl)*Math.pow(2,keysPitchOffset(r,c)/12),audioCtx.currentTime,0.03);}catch(e){} } }
 }
 let bpmEditing=false;
 document.getElementById('bpm').addEventListener('focus',()=>{ if(!bpmEditing){ pushUndo(); bpmEditing=true; } });
@@ -1094,6 +1110,7 @@ function stopAll(){
   for(let c=0;c<COLS;c++) stopTrackClip(c,true);
   for(const k in gateSrc){ const o=gateSrc[k]; try{ o.src.stop(); }catch(e){} delete gateSrc[k]; }  // ferma anche le voci in gate
   oneShots.forEach(s=>{ try{ s.stop(); }catch(e){} }); oneShots=[];                                 // e i one-shot
+  stopAllKeysNotes();                                                                               // e le note Keys tenute premute (altrimenti restano in loop all'infinito)
   for(const k in chokeVoices) delete chokeVoices[k];                                                // niente riferimenti stantii al prossimo choke
   renderAll(); refreshAllLeds();
 }
@@ -1135,8 +1152,21 @@ function nextBoundary(){
   return startTime+n*unit;
 }
 const gateSrc={};   // pad tenuti premuti (modo gate): chiave r*8+c -> source
-function triggerDown(r,c){
-  selectPad(r,c); const clip=clips[r][c]; if(!clip) return;
+// Punto unico per "premuto un pad" — sia da MIDI fisico (onMidiMessage) sia dal mouse su schermo
+// (el.onpointerdown): perfMode va ramificato qui, a monte del comportamento normale per-clip, cosi'
+// entrambi i percorsi si comportano allo stesso modo. velocity e' opzionale: i click col mouse non ne
+// hanno una, quindi di default vale 127 (piena intensita'), come dai pad fisici a fondo corsa.
+// NB: in Keys mode NON si chiama selectPad(r,c) qui — "selected" e' lo strumento scelto in precedenza
+// (il clip che l'intera griglia suona a intonazioni diverse); farlo scattare ad ogni nota premuta
+// romperebbe il concetto stesso di "tastiera" (ogni pad diventerebbe il proprio strumento, quasi
+// sempre vuoto). In Drums mode invece selectPad(r,c) resta utile e voluto: e' cosi' che cliccare un
+// pad del kit lo seleziona per caricarci dentro un sample (bottone "Carica file").
+function triggerDown(r,c,velocity){
+  const vel=(velocity!=null)?velocity:127;
+  if(perfMode==='drums'){ selectPad(r,c); triggerDrumHit(r,c,vel); return; }
+  if(perfMode==='keys'){ startKeysNote(r,c,vel); return; }
+  selectPad(r,c);
+  const clip=clips[r][c]; if(!clip) return;
   const mode=clip.mode||'loop';
   if(mode==='oneshot'){ playOnce(r,c); return; }
   if(mode==='gate'){ startGate(r,c); return; }
@@ -1150,6 +1180,8 @@ function triggerDown(r,c){
   scheduleClip(r,c,when);
 }
 function triggerUp(r,c){
+  if(perfMode==='keys'){ stopKeysNote(r,c); return; }
+  if(perfMode==='drums'){ return; }   // i colpi del kit sono one-shot a durata fissa: niente da rilasciare
   const clip=clips[r][c]; if(!clip) return;
   if((clip.mode||'loop')==='gate') stopGate(r,c);
 }
@@ -1204,12 +1236,19 @@ function startKeysNote(r,c,velocity){
   const grate=src.playbackRate.value||1, gper=(tE-tS)/grate;
   let goff=tS; if(gper>0.0001 && playing){ let e=now()-startTime; e=((e%gper)+gper)%gper; goff=tS+e*grate; }
   src.start(now(), goff);
-  keysSrc[r*8+c]={src,g};
+  // Si tiene anche il riferimento al clip usato per questa nota: se "selected" cambia mentre la nota e'
+  // ancora tenuta premuta, un applyRates() successivo (BPM o sync) deve ricalcolare il rate rispetto al
+  // clip CHE STA SUONANDO, non a quello nel frattempo selezionato altrove.
+  keysSrc[r*8+c]={src,g,clip};
 }
 function stopKeysNote(r,c){
   const k=r*8+c, o=keysSrc[k];
   if(o){ const t=now(); try{ o.g.gain.setValueAtTime(o.g.gain.value,t); o.g.gain.linearRampToValueAtTime(0,t+0.006); o.src.stop(t+0.02);}catch(e){} delete keysSrc[k]; }
 }
+// Ferma ogni voce Keys attualmente attiva. Nessun altro percorso di stop tocca keysSrc (e' indipendente
+// da trackState/gateSrc), quindi va chiamata esplicitamente da tutti i posti che devono garantire "silenzio
+// totale" o che stanno per sostituire i clip a cui le voci attive puntano.
+function stopAllKeysNotes(){ for(const k of Object.keys(keysSrc)){ stopKeysNote(Math.floor(k/8), k%8); } }
 // ---- SCENE LAUNCH: lancia un'intera riga su tutte le tracce, allineati ----
 function launchScene(r){
   const wasPlaying=playing; if(!playing) togglePlay();
@@ -1287,7 +1326,7 @@ recBtn.onclick=async()=>{
       const buf=await blob.arrayBuffer(); const raw=buf.slice(0);
       try{ const audio=await ac().decodeAudioData(buf);
         pushUndo();
-        clips[selected.r][selected.c]={buffer:audio,name:'Rec '+(selected.c+1)+'-'+(selected.r+1),raw,mime:blob.type};
+        activeGrid()[selected.r][selected.c]={buffer:audio,name:'Rec '+(selected.c+1)+'-'+(selected.r+1),raw,mime:blob.type};
         renderPad(selected.r,selected.c); updateLed(selected.r,selected.c);
       }catch(e){ alert('Registrazione non decodificabile.'); }
       stream.getTracks().forEach(t=>t.stop());
@@ -1330,6 +1369,9 @@ document.getElementById('setInput').onchange=async(e)=>{
     pushUndo();
     loadingSet=true;
     await stopAllSmooth(1.2);
+    // stopAllSmooth->stopAll gia' scarica keysSrc, ma qui si sta per sostituire clips/drumKit interi:
+    // uscire esplicitamente da Drums/Keys evita di restare a guardare un kit/banco che non esiste piu'.
+    stopAllKeysNotes(); perfMode=null;
     bpm=data.bpm||120; document.getElementById('bpm').value=bpm; document.getElementById('bpmVal').textContent=bpm;
     bars=data.bars||4; document.getElementById('bars').value=bars;
     quantMode='off'; document.getElementById('quant').value='off';   // default reattivo: parte subito (resta in fase)
@@ -1372,7 +1414,7 @@ document.getElementById('setInput').onchange=async(e)=>{
       for(const cl of data.drumKit) await loadClipInto(drumKit,cl,null);
     }
     snapshots=Array.isArray(data.snapshots)?data.snapshots:new Array(8).fill(null); updatePresetUI();
-    applyMix(); applyTrackFX(); recomputeTrackColors(); renderAll(); refreshAllLeds();
+    applyMix(); applyTrackFX(); recomputeTrackColors(); renderAll(); refreshAllLeds(); updatePerfModeUI();
     loadingSet=false;
     doAutosave();
     alert('Set caricato ✓');
@@ -1446,6 +1488,9 @@ async function restoreAutosave(snap){
   loadingSet=true;
   try{
   stopAll();
+  // stopAll() gia' scarica keysSrc, ma qui si sta per sostituire clips/drumKit interi: uscire
+  // esplicitamente da Drums/Keys evita di restare a guardare un kit/banco che non esiste piu'.
+  stopAllKeysNotes(); perfMode=null;
   bpm=snap.bpm||120; document.getElementById('bpm').value=bpm; document.getElementById('bpmVal').textContent=bpm;
   bars=snap.bars||4; document.getElementById('bars').value=bars;
   quantMode=snap.quantMode||'off'; document.getElementById('quant').value=quantMode;
@@ -1485,7 +1530,7 @@ async function restoreAutosave(snap){
   }
   activeBank=Math.min(Math.max(snap.activeBank||0,0),NBANKS-1); clips=banks[activeBank]; updateBankUI();
   snapshots=Array.isArray(snap.snapshots)?snap.snapshots:new Array(8).fill(null); updatePresetUI();
-  applyMix(); applyTrackFX(); recomputeTrackColors(); renderAll(); refreshAllLeds();
+  applyMix(); applyTrackFX(); recomputeTrackColors(); renderAll(); refreshAllLeds(); updatePerfModeUI();
   } finally { loadingSet=false; }
 }
 
