@@ -507,7 +507,7 @@ const banks=[]; for(let b=0;b<NBANKS;b++){ const g=[]; for(let r=0;r<ROWS;r++) g
 let activeBank=0, clips=banks[0];
 const trackColors=['#4ea1ff','#39d98a','#ffd23f','#ff7ac2','#b98bff','#ff9a3f','#3fe0d0','#ff5c5c'];
 let trackColorIdx=[0,1,2,3,4,5,6,7];   // colonne dello stesso "tipo" (categoria dedotta dal nome dei clip) condividono l'indice colore
-function categoryOf(name){ return (name||'').replace(/[\s_]*\d+[A-Za-z]?(-\d+)?\s*$/,'').trim().toLowerCase(); }
+function categoryOf(name){ const n=(name||'').trim().toLowerCase(); const stripped=n.replace(/[\s_]*\d+[A-Za-z]?(-\d+)?\s*$/,'').trim(); return stripped||n; }
 function recomputeTrackColors(){
   const cats=new Array(COLS).fill(null);
   for(let c=0;c<COLS;c++){ for(let r=0;r<ROWS;r++){ const cl=clips[r][c]; if(cl){ cats[c]=categoryOf(cl.name); break; } } }
@@ -725,8 +725,11 @@ function refreshAllLeds(){ for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) update
   if(outPort){ for(let r=0;r<ROWS;r++){ try{ outPort.send([0x90,19+(7-r)*10,37]); }catch(e){} } } }
 function updateLed(r,c){
   const ts=trackState[c];
-  if(ts.playingRow===r){ setLed(r,c,21,'pulse'); return; }
-  if(ts.queuedRow===r){ setLed(r,c,13,'flash'); return; }
+  // una traccia mutata (o silenziata perche' un'altra e' in solo) e' logicamente "in play"/"in coda"
+  // ma inudibile: il LED non deve sembrare identico a una traccia che sta davvero suonando.
+  const anySolo=tracks.some(t=>t.solo), silenced=anySolo?!tracks[c].solo:tracks[c].muted;
+  if(ts.playingRow===r && !silenced){ setLed(r,c,21,'pulse'); return; }
+  if(ts.queuedRow===r && !silenced){ setLed(r,c,13,'flash'); return; }
   if(clips[r][c]){ setLed(r,c,padColorIndex(c),'static'); return; }
   setLed(r,c,0,'static');
 }
@@ -755,9 +758,9 @@ for(let c=0;c<COLS;c++){
   vol.addEventListener('pointerdown',()=>pushUndo());
   const btns=document.createElement('div'); btns.className='btns';
   const mb=document.createElement('button'); mb.className='m'; mb.textContent='M';
-  mb.onclick=()=>{ pushUndo(); tracks[c].muted=!tracks[c].muted; mb.classList.toggle('on',tracks[c].muted); applyMix(); };
+  mb.onclick=()=>{ pushUndo(); tracks[c].muted=!tracks[c].muted; mb.classList.toggle('on',tracks[c].muted); applyMix(); refreshAllLeds(); };
   const sb=document.createElement('button'); sb.className='s'; sb.textContent='S';
-  sb.onclick=()=>{ pushUndo(); tracks[c].solo=!tracks[c].solo; sb.classList.toggle('on',tracks[c].solo); applyMix(); };
+  sb.onclick=()=>{ pushUndo(); tracks[c].solo=!tracks[c].solo; sb.classList.toggle('on',tracks[c].solo); applyMix(); refreshAllLeds(); };
   const stb=document.createElement('button'); stb.className='m'; stb.textContent='■'; stb.title='Stop traccia'; stb.onclick=()=>stopTrackClip(c,true);
   btns.appendChild(mb); btns.appendChild(sb); btns.appendChild(stb);
   t.appendChild(vol); t.appendChild(btns); mixrow.appendChild(t);
@@ -847,7 +850,7 @@ function playClipAt(r,c,when){ const clip=clips[r][c]; if(!clip) return;
   const {start:tS,end:tE}=trimBounds(clip);
   const src=ac().createBufferSource(); src.buffer=clip.buffer; src.loop=false; src.playbackRate.value=rateFor(clip);
   const g=ac().createGain(); g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(gainFor(clip),when+0.004);
-  src.connect(g).connect(trackGains[c]); src.start(when,tS,tE-tS); applyChoke(clip,src,g,when);
+  src.connect(g).connect(trackGains[c]); src.start(when,tS,tE-tS); applyChoke(clip,src,g,when,{col:c,row:r,kind:'oneshot'});
   oneShots.push(src); src.onended=()=>{ oneShots=oneShots.filter(s=>s!==src); }; }
 function fireStep(idx, when){ for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const cl=clips[r][c]; if(cl&&cl.steps&&cl.steps[idx]) playClipAt(r,c,when); } }
 
@@ -958,8 +961,13 @@ function reversedBuffer(buf){ const n=buf.numberOfChannels,len=buf.length,nb=ac(
 document.getElementById('clipRev').onchange=(e)=>{ const{r,c}=selected; const cl=clips[r][c]; if(!cl){ e.target.checked=false; return; }
   pushUndo();
   if(!cl.origBuffer) cl.origBuffer=cl.buffer;
+  // trimStart/trimEnd sono in secondi sul buffer ATTIVO: al ribaltamento vanno specchiati (dur-e, dur-s),
+  // altrimenti dopo il reverse suona la porzione simmetrica sbagliata invece della stessa porzione al contrario.
+  const dur=cl.origBuffer.duration, s=cl.trimStart||0, en=(cl.trimEnd!=null)?cl.trimEnd:dur;
+  cl.trimStart=Math.max(0,dur-en); cl.trimEnd=Math.max(0,dur-s);
   if(e.target.checked){ if(!cl.revBuffer) cl.revBuffer=reversedBuffer(cl.origBuffer); cl.buffer=cl.revBuffer; cl.reversed=true; }
-  else { cl.buffer=cl.origBuffer; cl.reversed=false; } };
+  else { cl.buffer=cl.origBuffer; cl.reversed=false; }
+  selectPad(r,c); };
 // ---- COPIA/INCOLLA impostazioni pad: solo mode/gain/pitch/choke/trim/reverse, mai l'audio ----
 let clipSettingsClipboard=null;
 document.getElementById('copyClipBtn').onclick=()=>{ const{r,c}=selected; const cl=clips[r][c]; if(!cl) return;
@@ -998,12 +1006,18 @@ function clipRate(clip){ return (syncBpm && clip && clip.sourceBpm)? bpm/clip.so
 function rateFor(clip){ return clipRate(clip)*Math.pow(2, ((clip&&clip.pitch)||0)/12); }
 function gainFor(clip){ return (clip&&clip.gain!=null)?clip.gain:1; }
 const chokeVoices={};
-function applyChoke(clip,src,gainNode,t){ const g=clip&&clip.choke; if(!g) return;
+// ctx={col,row,kind:'loop'|'gate'|'oneshot'}: serve a ripulire lo stato/LED della voce rubata dal choke,
+// non solo a fermarne l'audio (altrimenti trackState/gateSrc restano stantii: pad "fantasma" ancora
+// segnati come in play, e resyncAll()/recallSnapshot() possono farli ripartire da soli).
+function applyChoke(clip,src,gainNode,t,ctx){ const g=clip&&clip.choke; if(!g) return;
   const prev=chokeVoices[g];
   if(prev&&prev.src!==src){ const pt=t!=null?t:now(); const F=0.006;
     try{ if(prev.gain){ prev.gain.gain.setValueAtTime(prev.gain.gain.value,pt); prev.gain.gain.linearRampToValueAtTime(0,pt+F); }
-      prev.src.stop(pt+F+0.006); }catch(e){} }
-  chokeVoices[g]={src,gain:gainNode};
+      prev.src.stop(pt+F+0.006); }catch(e){}
+    if(prev.ctx){ const{col,row,kind}=prev.ctx;
+      if(kind==='loop'){ const ts=trackState[col]; if(ts&&ts.src===prev.src){ ts.src=null; ts.g=null; ts.playingRow=null; ts.queuedRow=null; renderPad(row,col); updateLed(row,col); } }
+      else if(kind==='gate'){ const k=row*8+col; if(gateSrc[k]&&gateSrc[k].src===prev.src){ delete gateSrc[k]; padEls[row][col].classList.remove('playing'); updateLed(row,col); } } } }
+  chokeVoices[g]={src,gain:gainNode,ctx};
   src.addEventListener('ended',()=>{ if(chokeVoices[g]&&chokeVoices[g].src===src) delete chokeVoices[g]; }); }
 function applyRates(){ if(!audioCtx) return;
   for(let c=0;c<COLS;c++){ const ts=trackState[c]; if(ts.src&&ts.playingRow!=null){ const cl=clips[ts.playingRow][c]; if(cl){ try{ ts.src.playbackRate.setTargetAtTime(rateFor(cl),audioCtx.currentTime,0.03);}catch(e){} } } }
@@ -1093,7 +1107,7 @@ function playOnce(r,c){
   const {start:tS,end:tE}=trimBounds(clip);
   const src=ac().createBufferSource(); src.buffer=clip.buffer; src.loop=false; src.playbackRate.value=rateFor(clip);
   const g=ac().createGain(); g.gain.setValueAtTime(0,now()); g.gain.linearRampToValueAtTime(gainFor(clip),now()+0.005);
-  src.connect(g).connect(trackGains[c]); src.start(now(),tS,tE-tS); applyChoke(clip,src,g,now());
+  src.connect(g).connect(trackGains[c]); src.start(now(),tS,tE-tS); applyChoke(clip,src,g,now(),{col:c,row:r,kind:'oneshot'});
   oneShots.push(src); src.onended=()=>{ oneShots=oneShots.filter(s=>s!==src); };
   const el=padEls[r][c]; el.classList.add('playing'); setLed(r,c,3,'static');
   setTimeout(()=>{ el.classList.remove('playing'); updateLed(r,c); }, 220);
@@ -1107,7 +1121,7 @@ function startGate(r,c){
   src.connect(g).connect(trackGains[c]);
   const grate=src.playbackRate.value||1, gper=(tE-tS)/grate;
   let goff=tS; if(gper>0.0001 && playing){ let e=now()-startTime; e=((e%gper)+gper)%gper; goff=tS+e*grate; }
-  src.start(now(), goff); applyChoke(clip,src,g,now());
+  src.start(now(), goff); applyChoke(clip,src,g,now(),{col:c,row:r,kind:'gate'});
   gateSrc[r*8+c]={src,g};
   padEls[r][c].classList.add('playing'); setLed(r,c,3,'static');
 }
@@ -1137,15 +1151,19 @@ function scheduleClip(r,c,when){
   // aggancio di fase: entra subito ma allineato alla griglia globale (Re-sync la ri-ancora a zero)
   const rate=src.playbackRate.value||1, periodOut=(tE-tS)/rate;
   let offset=tS; if(periodOut>0.0001 && playing){ let e=when-startTime; e=((e%periodOut)+periodOut)%periodOut; offset=tS+e*rate; }
-  src.start(when, offset); applyChoke(clip,src,g,when); ts.src=src; ts.g=g;
+  src.start(when, offset); applyChoke(clip,src,g,when,{col:c,row:r,kind:'loop'}); ts.src=src; ts.g=g;
   const delay=Math.max(0,(when-now())*1000);
-  setTimeout(()=>{ if(ts.queuedRow===r) ts.queuedRow=null; ts.playingRow=r; renderAll(); refreshAllLeds(); }, delay+5);
+  // guardia: se nel frattempo questa voce e' gia' stata sostituita/fermata (nuovo scheduleClip sulla
+  // stessa colonna, stop, o cambio banco che ha azzerato trackState), il timeout non deve piu' marcare
+  // playingRow=r, altrimenti resuscita uno stato stantio (magari su un banco diverso nel frattempo).
+  setTimeout(()=>{ if(ts.src!==src) return; if(ts.queuedRow===r) ts.queuedRow=null; ts.playingRow=r; renderAll(); refreshAllLeds(); }, delay+5);
 }
 function stopTrackClipAt(c,t){
   const ts=trackState[c]; const F=0.006;
   if(ts.src){ try{ if(ts.g){ ts.g.gain.setValueAtTime(ts.g.gain.value,t); ts.g.gain.linearRampToValueAtTime(0,t+F);} ts.src.stop(t+F+0.006);}catch(e){} }
-  ts.src=null; ts.g=null; const pr=ts.playingRow; ts.playingRow=null; ts.queuedRow=null;
+  ts.src=null; ts.g=null; const pr=ts.playingRow, qr=ts.queuedRow; ts.playingRow=null; ts.queuedRow=null;
   if(pr!=null){ renderPad(pr,c); updateLed(pr,c); }
+  if(qr!=null && qr!==pr){ renderPad(qr,c); updateLed(qr,c); }
 }
 function stopTrackClip(c,immediate){ stopTrackClipAt(c, immediate?now():nextBoundary()); }
 
@@ -1226,6 +1244,7 @@ document.getElementById('setInput').onchange=async(e)=>{
   try{
     const data=JSON.parse(await f.text());
     pushUndo();
+    loadingSet=true;
     await stopAllSmooth(1.2);
     bpm=data.bpm||120; document.getElementById('bpm').value=bpm; document.getElementById('bpmVal').textContent=bpm;
     bars=data.bars||4; document.getElementById('bars').value=bars;
@@ -1266,9 +1285,11 @@ document.getElementById('setInput').onchange=async(e)=>{
     }
     snapshots=Array.isArray(data.snapshots)?data.snapshots:new Array(8).fill(null); updatePresetUI();
     applyMix(); applyTrackFX(); recomputeTrackColors(); renderAll(); refreshAllLeds();
+    loadingSet=false;
     doAutosave();
     alert('Set caricato ✓');
   }catch(err){ alert('File set non valido.'); }
+  finally{ loadingSet=false; }
 };
 
 // ====================== AUTOSAVE (IndexedDB) ======================
@@ -1308,10 +1329,13 @@ function buildAutosaveSnapshot(){
   return out;
 }
 let autosaveTimer=null;
-function scheduleAutosave(){ if(!audioCtx) return; clearTimeout(autosaveTimer); autosaveTimer=setTimeout(doAutosave,4000); }
+// true durante il caricamento di un set/genere (decodeAudioData e' async, un tick di autosave a meta'
+// caricamento leggerebbe banks/activeBank incoerenti e sovrascriverebbe l'ultimo autosave buono col vuoto).
+let loadingSet=false;
+function scheduleAutosave(){ if(!audioCtx||loadingSet) return; clearTimeout(autosaveTimer); autosaveTimer=setTimeout(doAutosave,4000); }
 function setAutosaveStatus(msg){ const el=document.getElementById('autosaveStatus'); if(el) el.textContent=msg; }
 async function doAutosave(){
-  if(!audioCtx) return;
+  if(!audioCtx||loadingSet) return;
   try{ await idbPut(AUTOSAVE_KEY, buildAutosaveSnapshot());
     setAutosaveStatus('Autosave: salvato alle '+new Date().toLocaleTimeString());
   }catch(e){ setAutosaveStatus('⚠️ Autosave non riuscito ('+e.message+') — salva un set a mano'); }
@@ -1324,6 +1348,8 @@ document.getElementById('clearAutosaveBtn').onclick=async()=>{
 
 async function restoreAutosave(snap){
   pushUndo();
+  loadingSet=true;
+  try{
   stopAll();
   bpm=snap.bpm||120; document.getElementById('bpm').value=bpm; document.getElementById('bpmVal').textContent=bpm;
   bars=snap.bars||4; document.getElementById('bars').value=bars;
@@ -1357,6 +1383,7 @@ async function restoreAutosave(snap){
   activeBank=Math.min(Math.max(snap.activeBank||0,0),NBANKS-1); clips=banks[activeBank]; updateBankUI();
   snapshots=Array.isArray(snap.snapshots)?snap.snapshots:new Array(8).fill(null); updatePresetUI();
   applyMix(); applyTrackFX(); recomputeTrackColors(); renderAll(); refreshAllLeds();
+  } finally { loadingSet=false; }
 }
 
 async function checkAutosaveOnStartup(){
@@ -1375,9 +1402,9 @@ async function checkAutosaveOnStartup(){
 // tanto nessuno li muta in place (reverse crea un buffer nuovo, non tocca quello vecchio).
 const UNDO_LIMIT=30;
 let undoStack=[], redoStack=[], suppressUndoCapture=false;
-function cloneClip(cl){ return cl?Object.assign({},cl):null; }
+function cloneClip(cl){ if(!cl) return null; const c=Object.assign({},cl); if(Array.isArray(cl.steps)) c.steps=cl.steps.slice(); return c; }
 function captureState(){
-  return { bpm,bars,quantMode,phraseBars,activeBank,
+  return { bpm,bars,quantMode,phraseBars,activeBank,syncBpm,
     master:audioCtx?+document.getElementById('master').value:1,
     filter:+document.getElementById('filter').value,
     revWet:+document.getElementById('revWet').value, revSize:+document.getElementById('revSize').value,
@@ -1391,6 +1418,7 @@ function applyState(state){
   bars=state.bars; document.getElementById('bars').value=bars;
   quantMode=state.quantMode; document.getElementById('quant').value=quantMode;
   phraseBars=state.phraseBars;
+  syncBpm=!!state.syncBpm; document.getElementById('syncBpm').checked=syncBpm;
   ac();
   document.getElementById('master').value=state.master; masterGain.gain.value=state.master;
   document.getElementById('filter').value=state.filter; masterFilter.frequency.setTargetAtTime(20*Math.pow(1000,state.filter), audioCtx.currentTime, 0.02);
@@ -1405,7 +1433,7 @@ function applyState(state){
   for(let b=0;b<NBANKS;b++)for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) banks[b][r][c]=cloneClip(state.banks[b][r][c]);
   activeBank=Math.min(Math.max(state.activeBank||0,0),NBANKS-1); clips=banks[activeBank]; updateBankUI();
   snapshots=state.snapshots.map(s=>s?s.slice():null); updatePresetUI();
-  applyMix(); applyTrackFX(); recomputeTrackColors(); selectPad(selected.r,selected.c); refreshAllLeds();
+  applyMix(); applyTrackFX(); applyRates(); recomputeTrackColors(); selectPad(selected.r,selected.c); refreshAllLeds();
 }
 function updateUndoUI(){
   const ub=document.getElementById('undoBtn'), rb=document.getElementById('redoBtn');
@@ -1417,6 +1445,7 @@ function pushUndo(){
   if(undoStack.length>UNDO_LIMIT) undoStack.shift();
   redoStack=[];
   updateUndoUI();
+  scheduleAutosave();
 }
 function undo(){
   if(!undoStack.length) return;

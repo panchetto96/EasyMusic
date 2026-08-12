@@ -15,6 +15,7 @@
     const data=GENRES[key]; if(!data) return;
     stat.textContent='Carico '+key+'…'; await new Promise(r=>setTimeout(r,20));
     pushUndo();
+    loadingSet=true;
     await stopAllSmooth(1.2);
     bpm=data.bpm||120; document.getElementById('bpm').value=bpm; document.getElementById('bpmVal').textContent=bpm;
     bars=data.bars||4; document.getElementById('bars').value=([1,2,4,8].includes(bars)?bars:4);
@@ -32,11 +33,14 @@
     document.getElementById('dlyWet').value=dlyWetVal; fxDelaySend.gain.value=dlyWetVal;
     document.getElementById('dlyFb').value=dlyFbVal; fxDelayFb.gain.value=dlyFbVal;
     document.getElementById('dlyTime').value=dlyTimeVal; fxDelay.delayTime.value=secPerBeat()*dlyTimeVal;
-    (data.tracks||[]).forEach((t,c)=>{ if(c<COLS){ const v=t.volume!=null?t.volume:1.0; tracks[c].volume=v;tracks[c].muted=t.muted;tracks[c].solo=t.solo; tracks[c]._vol.value=v; tracks[c]._m.classList.toggle('on',t.muted); tracks[c]._s.classList.toggle('on',t.solo);} });
+    (data.tracks||[]).forEach((t,c)=>{ if(c<COLS){ const v=t.volume!=null?t.volume:1.0; tracks[c].volume=v;tracks[c].muted=t.muted;tracks[c].solo=t.solo;
+      tracks[c].low=t.low||0; tracks[c].high=t.high||0; tracks[c].revSend=t.revSend||0; tracks[c].dlySend=t.dlySend||0;
+      tracks[c]._vol.value=v; tracks[c]._m.classList.toggle('on',t.muted); tracks[c]._s.classList.toggle('on',t.solo);} });
     for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) clips[r][c]=null;
     let ok=0;
     for(const cl of data.clips){ try{ const ab=b64ToAb(cl.data); const raw=ab.slice(0); const audio=await ac().decodeAudioData(ab); clips[cl.r][cl.c]={buffer:audio,name:cl.name,raw,mime:cl.mime,mode:cl.mode||'loop',sourceBpm:data.bpm,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null}; ok++; }catch(e){} }
-    applyMix(); recomputeTrackColors(); renderAll(); refreshAllLeds();
+    applyMix(); applyTrackFX(); recomputeTrackColors(); renderAll(); refreshAllLeds();
+    loadingSet=false;
     doAutosave();
     stat.textContent=key+' ✓ ('+ok+' loop)';
   }
