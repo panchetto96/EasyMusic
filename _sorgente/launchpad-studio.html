@@ -795,23 +795,26 @@ function updateLed(r,c){
 // ====================== GRIGLIA + MIXER ======================
 const gridEl=document.getElementById('grid'), colhdr=document.getElementById('colhdr'), mixrow=document.getElementById('mixrow');
 const padEls=[];
-// Ctrl+trascinamento tra pad (vedi completeDrag piu' sotto): senza Ctrl un mousedown attiva gia'
-// il pad (suona/avvia/apre il gate), quindi il drag va segnalato esplicitamente per non innescare
-// anche la riproduzione come effetto collaterale dell'afferrare il pad.
-let dragSourcePad=null;   // {r,c} — pad afferrato, o null se nessun trascinamento in corso
+// Trascinamento (Ctrl+pointer, niente HTML5 draggable nativo): senza Ctrl un mousedown attiva gia'
+// il pad (suona/avvia/apre il gate), quindi il drag va segnalato esplicitamente. dragSource generalizza
+// la sorgente: {kind:'pad',r,c} per lo spostamento tra pad, {kind:'catalog',genre,idx} per il piazzamento
+// dal pannello Catalogo suoni (vedi catalog_ui.js).
+let dragSource=null;
+function isValidPadMoveTarget(src,r,c){ return trackColorIdx[c]===trackColorIdx[src.c]; }
 for(let c=0;c<COLS;c++){ const d=document.createElement('div'); d.textContent='T'+(c+1); colhdr.appendChild(d); }
 for(let r=0;r<ROWS;r++){ padEls.push([]);
   for(let c=0;c<COLS;c++){
     const el=document.createElement('div'); el.className='pad'; el.dataset.r=r; el.dataset.c=c;
     el.onpointerdown=(e)=>{
       e.preventDefault();
-      if(e.ctrlKey){ if(!activeGrid()[r][c]) return; dragSourcePad={r,c}; el.classList.add('dragging'); return; }
-      if(dragSourcePad){ padEls[dragSourcePad.r][dragSourcePad.c].classList.remove('dragging'); dragSourcePad=null; }
+      if(e.ctrlKey){ if(!activeGrid()[r][c]) return; dragSource={kind:'pad',r,c}; el.classList.add('dragging'); return; }
+      if(dragSource && dragSource.kind==='pad') padEls[dragSource.r][dragSource.c].classList.remove('dragging');
+      dragSource=null;
       if(perfMode==='drums') selectPad(r,c); triggerDown(r,c);
     };
-    el.onpointerup=()=>{ if(dragSourcePad){ completeDrag(r,c); return; } triggerUp(r,c); };
-    el.onpointerenter=()=>{ if(dragSourcePad && trackColorIdx[c]===trackColorIdx[dragSourcePad.c]) el.classList.add('dragover'); };
-    el.onpointerleave=()=>{ el.classList.remove('dragover'); if(dragSourcePad) return; triggerUp(r,c); };
+    el.onpointerup=()=>{ if(dragSource){ completeDrag(r,c); return; } triggerUp(r,c); };
+    el.onpointerenter=()=>{ if(dragSource && dragSource.kind==='pad' && isValidPadMoveTarget(dragSource,r,c)) el.classList.add('dragover'); };
+    el.onpointerleave=()=>{ el.classList.remove('dragover'); if(dragSource) return; triggerUp(r,c); };
     el.oncontextmenu=(e)=>{ e.preventDefault(); setPadOneShot(r,c); };   // tasto destro = scorciatoia "imposta one-shot"
     el.ondragover=(e)=>{e.preventDefault();el.classList.add('dragover');};
     el.ondragleave=()=>el.classList.remove('dragover');
@@ -1057,18 +1060,20 @@ function setPadOneShot(r,c){
   document.getElementById('padMode').value='oneshot';
   renderPad(r,c); updateLed(r,c);
 }
-// Completa un Ctrl+trascinamento (vedi onpointerdown/up sui pad piu' sopra): sposta il contenuto sul
-// pad di destinazione, o li scambia se era gia' occupato. Ammesso solo tra colonne dello stesso "tipo"
-// (stesso trackColorIdx, il raggruppamento colore per categoria gia' usato per LED/mixer) per non
-// mescolare per sbaglio suoni di categorie diverse tra le tracce.
 function completeDrag(r,c){
-  const src=dragSourcePad; dragSourcePad=null;
+  const src=dragSource; dragSource=null;
   if(!src) return;
+  if(src.kind==='pad') return completePadMove(src,r,c);
+}
+// Ctrl+trascinamento tra pad (vedi onpointerdown/up sui pad piu' sopra): sposta il contenuto sul pad
+// di destinazione, o li scambia se era gia' occupato. Ammesso solo tra colonne dello stesso "tipo"
+// (isValidPadMoveTarget) per non mescolare per sbaglio suoni di categorie diverse tra le tracce.
+function completePadMove(src,r,c){
   const {r:sr,c:sc}=src;
   padEls[sr][sc].classList.remove('dragging');
   padEls[r][c].classList.remove('dragover');
   if(sr===r && sc===c) return;
-  if(trackColorIdx[c]!==trackColorIdx[sc]) return;
+  if(!isValidPadMoveTarget(src,r,c)) return;
   const g=activeGrid(); if(!g[sr][sc]) return;
   pushUndo();
   if(perfMode===null){ stopPadSound(sr,sc); stopPadSound(r,c); }
