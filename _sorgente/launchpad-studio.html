@@ -1281,6 +1281,37 @@ function playOnce(r,c){
   const el=padEls[r][c]; el.classList.add('playing'); setLed(r,c,3,'static');
   setTimeout(()=>{ el.classList.remove('playing'); updateLed(r,c); }, 220);
 }
+// Cache di decodifica per il pannello Catalogo suoni: evita di ridecodificare lo stesso clip a ogni
+// anteprima/trascinamento ripetuto. Decodifica solo on-demand (mai tutto il catalogo insieme).
+const catalogBufferCache=new Map();   // "genere|indice" -> Promise<AudioBuffer>
+function decodeCatalogClip(genre,idx){
+  const key=genre+'|'+idx;
+  if(!catalogBufferCache.has(key)){
+    const cl=GENRES[genre].clips[idx];
+    catalogBufferCache.set(key, ac().decodeAudioData(b64ToAb(cl.data)));
+  }
+  return catalogBufferCache.get(key);
+}
+// Anteprima da catalogo: monofonica, stessa dissolvenza-poi-stop gia' usata da oneShotVoice/drumVoice.
+let previewSrc=null;   // {src,g,key} — l'anteprima in corso, o null
+async function previewCatalogClip(genre,idx){
+  const key=genre+'|'+idx;
+  if(previewSrc && previewSrc.key===key){ stopCatalogPreview(); return; }   // riclic sullo stesso: ferma
+  stopCatalogPreview();
+  ac().resume();
+  const buffer=await decodeCatalogClip(genre,idx);
+  const src=ac().createBufferSource(); src.buffer=buffer; src.loop=false;
+  const g=ac().createGain(); g.gain.setValueAtTime(0,now()); g.gain.linearRampToValueAtTime(1,now()+0.005);
+  src.connect(g).connect(masterGain); src.start(now());
+  oneShots.push(src); src.onended=()=>{ oneShots=oneShots.filter(s=>s!==src); if(previewSrc&&previewSrc.src===src) previewSrc=null; };
+  previewSrc={src,g,key};
+}
+function stopCatalogPreview(){
+  if(!previewSrc) return;
+  const pv=previewSrc, pt=now(), F=0.006;
+  try{ pv.g.gain.setValueAtTime(pv.g.gain.value,pt); pv.g.gain.linearRampToValueAtTime(0,pt+F); pv.src.stop(pt+F+0.006); }catch(e){}
+  previewSrc=null;
+}
 function startGate(r,c){
   ac().resume(); stopGate(r,c);
   const clip=clips[r][c];
