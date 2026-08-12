@@ -726,8 +726,12 @@ function onMidiMessage(ev){
   if(d1===95){
     const isPress=(type===0x90||type===0xB0)&&d2>0, isRelease=type===0x80||((type===0x90||type===0xB0)&&d2===0);
     if(isPress){
-      if(perfMode!==null){ exitPerfMode(); return; }
-      sessionHoldFired=false; clearTimeout(sessionHoldTimer);
+      clearTimeout(sessionHoldTimer); sessionHoldTimer=null;
+      // Uscire da Drums scatta subito alla pressione, senza aspettare il rilascio. sessionHoldFired=true
+      // segna il ciclo pressione/rilascio come "gia' gestito", cosi' il rilascio (isRelease sotto) non
+      // scambia questo per un tocco a riposo e non lancia stopAll() per errore.
+      if(perfMode!==null){ sessionHoldFired=true; exitPerfMode(); return; }
+      sessionHoldFired=false;
       sessionHoldTimer=setTimeout(()=>{ sessionHoldFired=true; resyncAll(); }, SESSION_HOLD_MS);
       return;
     }
