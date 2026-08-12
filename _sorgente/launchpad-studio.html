@@ -1341,6 +1341,7 @@ function isValidDropTarget(src,r,c){
   if(!src) return false;
   if(src.kind==='pad') return isValidPadMoveTarget(src,r,c);
   if(src.kind==='catalog'){
+    if(perfMode==='drums') return false;
     if(clips[r][c]) return false;
     const cat=categoryOf(GENRES[src.genre].clips[src.idx].name);
     const colCat=columnCategoryOf(clips,c);
@@ -1353,7 +1354,7 @@ function isValidDropTarget(src,r,c){
 // alimenta solo i banchi). Dopo un piazzamento riuscito ricalcola i colori-per-categoria, a differenza
 // del trascinamento pad-a-pad: qui e' proprio il punto, l'utente deve vedere l'auto-organizzazione live.
 async function completeCatalogPlace(src,r,c){
-  if(perfMode==='drums') return;
+  if(perfMode==='drums'){ showDropStatus('Non disponibile in modalità Drums'); return; }
   const cl=GENRES[src.genre].clips[src.idx];
   const cat=categoryOf(cl.name);
   if(clips[r][c]){ showDropStatus('Pad occupato'); return; }
