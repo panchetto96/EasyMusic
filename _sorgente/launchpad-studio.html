@@ -837,6 +837,7 @@ const bankBtns=[];
 function updateBankUI(){ bankBtns.forEach((b,i)=>b.classList.toggle('on',i===activeBank)); }
 async function switchBank(i){ if(i===activeBank||i<0||i>=NBANKS) return;
   await stopAllSmooth(1.0);   // dissolvenza un po' piu' breve del cambio genere (1.2s): qui i suoni sono gia' decodificati, non c'e' attesa di caricamento
+  perfMode=null;
   activeBank=i; clips=banks[i]; selectPad(selected.r,selected.c); recomputeTrackColors(); renderAll(); refreshAllLeds(); updateBankUI(); }
 function cycleBank(){ switchBank((activeBank+1)%NBANKS); }
 (function(){
@@ -890,10 +891,11 @@ function applyTrackFX(){
   }
 }
 function renderPad(r,c){
-  const el=padEls[r][c], clip=clips[r][c], ts=trackState[c];
+  const el=padEls[r][c], clip=activeGrid()[r][c], ts=trackState[c];
+  const showPlayState = perfMode===null;   // in Drums/Keys lo stato di trackState appartiene al banco, non al kit: non mostrarlo
   el.classList.toggle('loaded',!!clip);
-  el.classList.toggle('playing',ts.playingRow===r);
-  el.classList.toggle('queued',ts.queuedRow===r);
+  el.classList.toggle('playing', showPlayState && ts.playingRow===r);
+  el.classList.toggle('queued', showPlayState && ts.queuedRow===r);
   el.classList.toggle('selected',selected.r===r&&selected.c===c);
   if(clip){ el.style.background=trackColors[trackColorIdx[c]];
     const badge = clip.mode==='oneshot'?' ①' : clip.mode==='gate'?' ⤓' : '';
@@ -925,11 +927,11 @@ function drawWaveform(clip){
     ctx.moveTo(x,mid+mn*mid); ctx.lineTo(x,mid+mx*mid); }
   ctx.stroke();
 }
-document.getElementById('clipTrimStart').oninput=(e)=>{ const{r,c}=selected; const cl=clips[r][c]; if(!cl||!cl.buffer) return;
+document.getElementById('clipTrimStart').oninput=(e)=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl||!cl.buffer) return;
   const dur=cl.buffer.duration; cl.trimStart=+e.target.value*dur;
   if(cl.trimEnd!=null && cl.trimStart>=cl.trimEnd) cl.trimStart=Math.max(0,cl.trimEnd-0.01);
   drawWaveform(cl); };
-document.getElementById('clipTrimEnd').oninput=(e)=>{ const{r,c}=selected; const cl=clips[r][c]; if(!cl||!cl.buffer) return;
+document.getElementById('clipTrimEnd').oninput=(e)=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl||!cl.buffer) return;
   const dur=cl.buffer.duration; cl.trimEnd=+e.target.value*dur;
   if(cl.trimEnd<=(cl.trimStart||0)) cl.trimEnd=Math.min(dur,(cl.trimStart||0)+0.01);
   drawWaveform(cl); };
@@ -937,7 +939,7 @@ document.getElementById('clipTrimStart').addEventListener('pointerdown',()=>push
 document.getElementById('clipTrimEnd').addEventListener('pointerdown',()=>pushUndo());
 
 function selectPad(r,c){ selected={r,c}; document.getElementById('selInfo').textContent='Traccia '+(c+1)+' · Scena '+(r+1);
-  const pm=document.getElementById('padMode'); const cl=clips[r][c]; if(pm) pm.value=(cl&&cl.mode)||'loop';
+  const pm=document.getElementById('padMode'); const cl=activeGrid()[r][c]; if(pm) pm.value=(cl&&cl.mode)||'loop';
   const cr=document.getElementById('clipRev'); if(cr) cr.checked=!!(cl&&cl.reversed);
   const cg=document.getElementById('clipGain'); if(cg) cg.value=(cl&&cl.gain!=null)?cl.gain:1;
   const cpi=document.getElementById('clipPitch'); if(cpi){ cpi.value=(cl&&cl.pitch)||0; document.getElementById('clipPitchVal').textContent=cpi.value; }
@@ -961,21 +963,21 @@ async function loadFileToPad(file,r,c){
     const buf=await file.arrayBuffer(); const raw=buf.slice(0);
     const audio=await ac().decodeAudioData(buf);
     pushUndo();
-    clips[r][c]={buffer:audio,name:file.name.replace(/\.[^.]+$/,''),raw,mime:file.type||'audio/wav'};
+    activeGrid()[r][c]={buffer:audio,name:file.name.replace(/\.[^.]+$/,''),raw,mime:file.type||'audio/wav'};
     renderPad(r,c); updateLed(r,c);
   }catch(e){ alert('File audio non leggibile: '+file.name); }
 }
 document.getElementById('loadBtn').onclick=()=>document.getElementById('fileInput').click();
 document.getElementById('fileInput').onchange=(e)=>{const f=e.target.files[0]; if(f) loadFileToPad(f,selected.r,selected.c); e.target.value='';};
-document.getElementById('clearBtn').onclick=()=>{const{r,c}=selected; pushUndo(); stopTrackClip(c,true); clips[r][c]=null; renderPad(r,c); updateLed(r,c);};
+document.getElementById('clearBtn').onclick=()=>{const{r,c}=selected; pushUndo(); if(perfMode===null) stopTrackClip(c,true); activeGrid()[r][c]=null; renderPad(r,c); updateLed(r,c);};
 function stopPadSound(r,c){ if(trackState[c].playingRow===r) stopTrackClip(c,true); stopGate(r,c); }
-document.getElementById('padMode').onchange=(e)=>{ const{r,c}=selected; if(clips[r][c]){ pushUndo(); stopPadSound(r,c); clips[r][c].mode=e.target.value; renderPad(r,c); updateLed(r,c);} };
-document.getElementById('padModeCol').onclick=()=>{ const{c}=selected; const m=document.getElementById('padMode').value;
+document.getElementById('padMode').onchange=(e)=>{ const{r,c}=selected; const g=activeGrid(); if(g[r][c]){ pushUndo(); if(perfMode===null) stopPadSound(r,c); g[r][c].mode=e.target.value; renderPad(r,c); updateLed(r,c);} };
+document.getElementById('padModeCol').onclick=()=>{ const{c}=selected; const m=document.getElementById('padMode').value; const g=activeGrid();
   pushUndo();
-  for(let r=0;r<ROWS;r++){ if(clips[r][c]){ stopPadSound(r,c); clips[r][c].mode=m; renderPad(r,c); updateLed(r,c);} } };
+  for(let r=0;r<ROWS;r++){ if(g[r][c]){ if(perfMode===null) stopPadSound(r,c); g[r][c].mode=m; renderPad(r,c); updateLed(r,c);} } };
 function reversedBuffer(buf){ const n=buf.numberOfChannels,len=buf.length,nb=ac().createBuffer(n,len,buf.sampleRate);
   for(let ch=0;ch<n;ch++){ const s=buf.getChannelData(ch),d=nb.getChannelData(ch); for(let i=0;i<len;i++) d[i]=s[len-1-i]; } return nb; }
-document.getElementById('clipRev').onchange=(e)=>{ const{r,c}=selected; const cl=clips[r][c]; if(!cl){ e.target.checked=false; return; }
+document.getElementById('clipRev').onchange=(e)=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl){ e.target.checked=false; return; }
   pushUndo();
   if(!cl.origBuffer) cl.origBuffer=cl.buffer;
   // trimStart/trimEnd sono in secondi sul buffer ATTIVO: al ribaltamento vanno specchiati (dur-e, dur-s),
@@ -987,11 +989,11 @@ document.getElementById('clipRev').onchange=(e)=>{ const{r,c}=selected; const cl
   selectPad(r,c); };
 // ---- COPIA/INCOLLA impostazioni pad: solo mode/gain/pitch/choke/trim/reverse, mai l'audio ----
 let clipSettingsClipboard=null;
-document.getElementById('copyClipBtn').onclick=()=>{ const{r,c}=selected; const cl=clips[r][c]; if(!cl) return;
+document.getElementById('copyClipBtn').onclick=()=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl) return;
   clipSettingsClipboard={mode:cl.mode||'loop',gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,
     trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,reversed:!!cl.reversed};
   document.getElementById('pasteClipBtn').disabled=false; };
-document.getElementById('pasteClipBtn').onclick=()=>{ const{r,c}=selected; const cl=clips[r][c]; if(!cl||!clipSettingsClipboard) return;
+document.getElementById('pasteClipBtn').onclick=()=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl||!clipSettingsClipboard) return;
   pushUndo();
   const s=clipSettingsClipboard;
   cl.mode=s.mode; cl.gain=s.gain; cl.pitch=s.pitch; cl.choke=s.choke;
@@ -1001,11 +1003,11 @@ document.getElementById('pasteClipBtn').onclick=()=>{ const{r,c}=selected; const
   if(s.reversed){ if(!cl.revBuffer) cl.revBuffer=reversedBuffer(cl.origBuffer); cl.buffer=cl.revBuffer; cl.reversed=true; }
   else { cl.buffer=cl.origBuffer; cl.reversed=false; }
   selectPad(r,c); updateLed(r,c); };
-function liveClipUpdate(r,c){ const ts=trackState[c], cl=clips[r][c]; if(!cl||!audioCtx) return;
+function liveClipUpdate(r,c){ const ts=trackState[c], cl=activeGrid()[r][c]; if(!cl||!audioCtx) return;
   if(ts.playingRow===r && ts.src){ try{ ts.src.playbackRate.setTargetAtTime(rateFor(cl),audioCtx.currentTime,0.02); if(ts.g) ts.g.gain.setTargetAtTime(gainFor(cl),audioCtx.currentTime,0.02); }catch(e){} } }
-document.getElementById('clipGain').oninput=(e)=>{ const{r,c}=selected; if(clips[r][c]){ clips[r][c].gain=+e.target.value; liveClipUpdate(r,c);} };
-document.getElementById('clipPitch').oninput=(e)=>{ document.getElementById('clipPitchVal').textContent=e.target.value; const{r,c}=selected; if(clips[r][c]){ clips[r][c].pitch=+e.target.value; liveClipUpdate(r,c);} };
-document.getElementById('clipChoke').onchange=(e)=>{ const{r,c}=selected; if(clips[r][c]){ pushUndo(); clips[r][c].choke=+e.target.value; } };
+document.getElementById('clipGain').oninput=(e)=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(cl){ cl.gain=+e.target.value; liveClipUpdate(r,c);} };
+document.getElementById('clipPitch').oninput=(e)=>{ document.getElementById('clipPitchVal').textContent=e.target.value; const{r,c}=selected; const cl=activeGrid()[r][c]; if(cl){ cl.pitch=+e.target.value; liveClipUpdate(r,c);} };
+document.getElementById('clipChoke').onchange=(e)=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(cl){ pushUndo(); cl.choke=+e.target.value; } };
 document.getElementById('clipGain').addEventListener('pointerdown',()=>pushUndo());
 document.getElementById('clipPitch').addEventListener('pointerdown',()=>pushUndo());
 let tapTimes=[];
