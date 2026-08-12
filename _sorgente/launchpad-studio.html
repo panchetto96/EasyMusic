@@ -801,6 +801,7 @@ for(let r=0;r<ROWS;r++){ padEls.push([]);
     el.onpointerdown=(e)=>{ e.preventDefault(); if(perfMode==='drums') selectPad(r,c); triggerDown(r,c); };
     el.onpointerup=()=>triggerUp(r,c);
     el.onpointerleave=()=>triggerUp(r,c);
+    el.oncontextmenu=(e)=>{ e.preventDefault(); setPadOneShot(r,c); };   // tasto destro = scorciatoia "imposta one-shot"
     el.ondragover=(e)=>{e.preventDefault();el.classList.add('dragover');};
     el.ondragleave=()=>el.classList.remove('dragover');
     el.ondrop=(e)=>{e.preventDefault();el.classList.remove('dragover'); const f=e.dataTransfer.files[0]; if(f) loadFileToPad(f,r,c);};
@@ -1034,6 +1035,17 @@ document.getElementById('fileInput').onchange=(e)=>{const f=e.target.files[0]; i
 document.getElementById('clearBtn').onclick=()=>{const{r,c}=selected; pushUndo(); if(perfMode===null) stopTrackClip(c,true); activeGrid()[r][c]=null; renderPad(r,c); updateLed(r,c);};
 function stopPadSound(r,c){ if(trackState[c].playingRow===r) stopTrackClip(c,true); stopGate(r,c); }
 document.getElementById('padMode').onchange=(e)=>{ const{r,c}=selected; const g=activeGrid(); if(g[r][c]){ pushUndo(); if(perfMode===null) stopPadSound(r,c); g[r][c].mode=e.target.value; renderPad(r,c); updateLed(r,c);} };
+// Tasto destro su un pad = scorciatoia per impostarlo one-shot senza passare dal menu a tendina.
+// Inerte in Drums mode, come il menu a tendina (che li' e' disabilitato): il campo mode non ha
+// alcun effetto sui colpi del kit, sempre one-shot a prescindere.
+function setPadOneShot(r,c){
+  if(perfMode==='drums') return;
+  selectPad(r,c);
+  const cl=clips[r][c]; if(!cl) return;
+  pushUndo(); stopPadSound(r,c); cl.mode='oneshot';
+  document.getElementById('padMode').value='oneshot';
+  renderPad(r,c); updateLed(r,c);
+}
 document.getElementById('padModeCol').onclick=()=>{ const{c}=selected; const m=document.getElementById('padMode').value; const g=activeGrid();
   pushUndo();
   for(let r=0;r<ROWS;r++){ if(g[r][c]){ if(perfMode===null) stopPadSound(r,c); g[r][c].mode=m; renderPad(r,c); updateLed(r,c);} } };
