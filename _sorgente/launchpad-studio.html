@@ -1313,6 +1313,10 @@ document.getElementById('saveBtn').onclick=()=>{
     for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const cl=grid[r][c];
       if(cl&&cl.raw) bankClips.push({r,c,name:cl.name,mime:cl.mime,mode:cl.mode||'loop',reversed:cl.reversed||false,gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,steps:cl.steps||null,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,data:abToB64(cl.raw)}); }
     out.banks.push(bankClips); }
+  const kitClips=[];
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const cl=drumKit[r][c];
+    if(cl&&cl.raw) kitClips.push({r,c,name:cl.name,mime:cl.mime,reversed:cl.reversed||false,gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,data:abToB64(cl.raw)}); }
+  out.drumKit=kitClips;
   const blob=new Blob([JSON.stringify(out)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
   a.download='set-'+new Date().toISOString().slice(0,10)+'.lpstudio'; a.click();
@@ -1363,6 +1367,10 @@ document.getElementById('setInput').onchange=async(e)=>{
       for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) clips[r][c]=null;
       for(const cl of (data.clips||[])) await loadClipInto(clips,cl,data.bpm);
     }
+    if(Array.isArray(data.drumKit)){
+      for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) drumKit[r][c]=null;
+      for(const cl of data.drumKit) await loadClipInto(drumKit,cl,null);
+    }
     snapshots=Array.isArray(data.snapshots)?data.snapshots:new Array(8).fill(null); updatePresetUI();
     applyMix(); applyTrackFX(); recomputeTrackColors(); renderAll(); refreshAllLeds();
     loadingSet=false;
@@ -1406,6 +1414,13 @@ function buildAutosaveSnapshot(){
         trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,
         raw:cl.raw}); }
     out.banks.push(bankClips); }
+  const kitClips=[];
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const cl=drumKit[r][c];
+    if(cl&&cl.raw) kitClips.push({r,c,name:cl.name,mime:cl.mime,reversed:cl.reversed||false,
+      gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,
+      trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,
+      raw:cl.raw}); }
+  out.drumKit=kitClips;
   return out;
 }
 let autosaveTimer=null;
@@ -1460,6 +1475,14 @@ async function restoreAutosave(snap){
       }catch(e){}
     }
   }
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) drumKit[r][c]=null;
+  for(const cl of (snap.drumKit||[])){
+    try{ const raw=cl.raw; const audio=await ac().decodeAudioData(raw.slice(0));
+      const nc={buffer:audio,name:cl.name,raw,mime:cl.mime,gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null};
+      if(cl.reversed){ nc.origBuffer=audio; nc.revBuffer=reversedBuffer(audio); nc.buffer=nc.revBuffer; nc.reversed=true; }
+      drumKit[cl.r][cl.c]=nc;
+    }catch(e){}
+  }
   activeBank=Math.min(Math.max(snap.activeBank||0,0),NBANKS-1); clips=banks[activeBank]; updateBankUI();
   snapshots=Array.isArray(snap.snapshots)?snap.snapshots:new Array(8).fill(null); updatePresetUI();
   applyMix(); applyTrackFX(); recomputeTrackColors(); renderAll(); refreshAllLeds();
@@ -1491,7 +1514,8 @@ function captureState(){
     dlyWet:+document.getElementById('dlyWet').value, dlyFb:+document.getElementById('dlyFb').value, dlyTime:+document.getElementById('dlyTime').value,
     tracks:tracks.map(t=>({volume:t.volume,muted:t.muted,solo:t.solo,low:t.low||0,high:t.high||0,revSend:t.revSend||0,dlySend:t.dlySend||0})),
     snapshots:snapshots.map(s=>s?s.slice():null),
-    banks:banks.map(bank=>bank.map(row=>row.map(cloneClip))) };
+    banks:banks.map(bank=>bank.map(row=>row.map(cloneClip))),
+    drumKit:drumKit.map(row=>row.map(cloneClip)) };
 }
 function applyState(state){
   bpm=state.bpm; document.getElementById('bpm').value=bpm; document.getElementById('bpmVal').textContent=bpm;
@@ -1511,6 +1535,7 @@ function applyState(state){
     tracks[c].low=t.low||0; tracks[c].high=t.high||0; tracks[c].revSend=t.revSend||0; tracks[c].dlySend=t.dlySend||0;
     tracks[c]._vol.value=t.volume; tracks[c]._m.classList.toggle('on',t.muted); tracks[c]._s.classList.toggle('on',t.solo); } });
   for(let b=0;b<NBANKS;b++)for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) banks[b][r][c]=cloneClip(state.banks[b][r][c]);
+  for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) drumKit[r][c]=cloneClip(state.drumKit[r][c]);
   activeBank=Math.min(Math.max(state.activeBank||0,0),NBANKS-1); clips=banks[activeBank]; updateBankUI();
   snapshots=state.snapshots.map(s=>s?s.slice():null); updatePresetUI();
   applyMix(); applyTrackFX(); applyRates(); recomputeTrackColors(); selectPad(selected.r,selected.c); refreshAllLeds();
