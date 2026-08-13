@@ -1,10 +1,11 @@
-let newKitBtn=null, draftKitName=null;
+let newKitBtn=null, draftKitName=null, saveKitBtn=null, delKitBtn=null, customKitOptionEls=[], sel=null;
+let refreshGenreSelectOptions, updateDelKitVisibility;   // assegnate dentro l'IIFE (chiudono su sel/customKits)
 (function(){
   const box=document.querySelector('.grid-box');
   const bar=document.createElement('div');
   bar.style.cssText='display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px;background:#181b22;border:1px solid #2c313d;border-radius:10px';
   const lab=document.createElement('label'); lab.textContent='🎚️ Genere'; lab.style.cssText='font-size:13px;color:#8b93a4';
-  const sel=document.createElement('select');
+  sel=document.createElement('select');
   sel.style.cssText='background:#20242e;color:#e8ebf1;border:1px solid #2c313d;border-radius:8px;padding:8px 10px;font-size:13px;min-width:230px';
   Object.keys(GENRES).forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;sel.appendChild(o);});
   const btn=document.createElement('button'); btn.textContent='▶ Carica genere';
@@ -22,6 +23,57 @@ let newKitBtn=null, draftKitName=null;
     draftKitName=name;
     stat.textContent='Nuovo kit «'+name+'» — trascina suoni dal catalogo per riempirlo.';
   };
+  refreshGenreSelectOptions=function(){
+    customKitOptionEls.forEach(o=>o.remove());
+    customKitOptionEls=[];
+    if(!customKits.length) return;
+    const sep=document.createElement('option'); sep.disabled=true; sep.textContent='— I tuoi kit —';
+    sel.appendChild(sep); customKitOptionEls.push(sep);
+    customKits.forEach(k=>{ const o=document.createElement('option'); o.value='kit:'+k.id; o.textContent=k.name; sel.appendChild(o); customKitOptionEls.push(o); });
+  };
+  updateDelKitVisibility=function(){ delKitBtn.style.display = sel.value.startsWith('kit:') ? 'inline-block' : 'none'; };
+  sel.onchange=updateDelKitVisibility;
+
+  saveKitBtn=document.createElement('button'); saveKitBtn.textContent='💾 Salva come kit';
+  saveKitBtn.style.cssText=newKitBtn.style.cssText;
+  bar.appendChild(saveKitBtn);
+  function buildKitSnapshot(name,id){
+    const out={id, name, bpm, bars, phraseBars,
+      master:audioCtx?+document.getElementById('master').value:1,
+      filter:+document.getElementById('filter').value,
+      revWet:+document.getElementById('revWet').value, revSize:+document.getElementById('revSize').value,
+      dlyWet:+document.getElementById('dlyWet').value, dlyFb:+document.getElementById('dlyFb').value, dlyTime:+document.getElementById('dlyTime').value,
+      tracks:tracks.map(t=>({volume:t.volume,muted:t.muted,solo:t.solo,low:t.low||0,high:t.high||0,revSend:t.revSend||0,dlySend:t.dlySend||0})),
+      clips:[]};
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const cl=clips[r][c];
+      if(cl&&cl.raw) out.clips.push({r,c,name:cl.name,mime:cl.mime,mode:cl.mode||'loop',trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,sourceBpm:cl.sourceBpm||bpm,raw:cl.raw}); }
+    return out;
+  }
+  saveKitBtn.onclick=async ()=>{
+    const name=prompt('Nome del kit:', draftKitName||'Kit personalizzato'); if(!name) return;
+    const kit=buildKitSnapshot(name, newKitId());
+    await kitPut(kit);
+    customKits.push(kit);
+    refreshGenreSelectOptions();
+    sel.value='kit:'+kit.id;
+    updateDelKitVisibility();
+    stat.textContent='Kit «'+name+'» salvato ✓';
+  };
+
+  delKitBtn=document.createElement('button'); delKitBtn.textContent='🗑️ Elimina kit'; delKitBtn.style.display='none';
+  delKitBtn.style.cssText=newKitBtn.style.cssText;
+  bar.appendChild(delKitBtn);
+  delKitBtn.onclick=async ()=>{
+    if(!sel.value.startsWith('kit:')) return;
+    const id=sel.value.slice(4);
+    await kitDelete(id);
+    customKits=customKits.filter(k=>k.id!==id);
+    refreshGenreSelectOptions();
+    sel.value=Object.keys(GENRES)[0]||'';
+    updateDelKitVisibility();
+    stat.textContent='Kit eliminato';
+  };
+  refreshGenreSelectOptions();
   box.insertBefore(bar, box.firstChild);
   async function loadGenre(key){
     const data=GENRES[key]; if(!data) return;
