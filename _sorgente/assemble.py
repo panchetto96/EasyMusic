@@ -8,8 +8,9 @@ a partire dai pezzi presenti in questa cartella:
   genre_ui.js             = il codice della barra "Genere" + funzione loadGenre
   drumkit_preset.json     = 64 pad di fabbrica per il kit Drums (audio Opus in base64)
   drumkit_preset_ui.js    = loadDrumKitPresetIfEmpty()
+  catalog_ui.js           = pannello "Catalogo suoni" + barra kit personalizzati (+ Nuovo/Salva/Elimina/Esporta/Importa kit)
 
-Inietta un blocco <script> (GENRES + genre_ui.js + DRUM_KIT_PRESET + drumkit_preset_ui.js)
+Inietta un blocco <script> (GENRES + genre_ui.js + DRUM_KIT_PRESET + drumkit_preset_ui.js + catalog_ui.js)
 subito prima di </body> e scrive il file finale.
 
 USO:
@@ -27,16 +28,18 @@ DATA    = HERE / "genres.json"
 UI      = HERE / "genre_ui.js"
 DKDATA  = HERE / "drumkit_preset.json"
 DKUI    = HERE / "drumkit_preset_ui.js"
+CATUI   = HERE / "catalog_ui.js"
 OUT   = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else HERE.parent / "Launchpad Studio.html"
 
 def main():
-    for p in (SRC, DATA, UI, DKDATA, DKUI):
+    for p in (SRC, DATA, UI, DKDATA, DKUI, CATUI):
         if not p.exists():
             sys.exit(f"ERRORE: manca {p.name} in {HERE}")
 
     src   = SRC.read_text(encoding="utf-8")
     ui    = UI.read_text(encoding="utf-8")
     dkui  = DKUI.read_text(encoding="utf-8")
+    catui = CATUI.read_text(encoding="utf-8")
     # valida che genres.json / drumkit_preset.json siano JSON corretti e conta le clip
     genres = json.loads(DATA.read_text(encoding="utf-8"))
     nclip  = sum(len(g.get("clips", [])) for g in genres.values())
@@ -47,6 +50,7 @@ def main():
 
     block = ("\n<script>\nconst GENRES = " + data_text + ";\n" + ui.rstrip()
              + "\nconst DRUM_KIT_PRESET = " + drumkit_text + ";\n" + dkui.rstrip()
+             + "\n" + catui.rstrip()
              + "\n</script>\n\n")
 
     idx = src.rfind("</body>")

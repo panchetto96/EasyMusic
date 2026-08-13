@@ -152,19 +152,34 @@
 
   <!-- 5 -->
   <h2 class="sec" id="suoni">5 · Caricare i suoni</h2>
-  <p>Quattro modi, dal più rapido al più personale.</p>
+  <p>Cinque modi, dal più rapido al più personale.</p>
   <h3>A) Dal menù Genere — il più veloce</h3>
   <ol><li>Scegli un genere dal menù <span class="btn">🎚️ Genere</span> in alto a sinistra.</li>
   <li>Premi <span class="btn primary">▶ Carica genere</span>: la griglia si riempie di loop coerenti tra loro (stessa tonalità e BPM), pronti da suonare.</li></ol>
   <p>Se stavi già suonando qualcosa, il cambio genere non taglia di colpo: il master scende in dissolvenza (poco più di un secondo), cambia il contenuto, e risale — niente buco di silenzio a metà esibizione. Lo stesso vale aprendo un set salvato.</p>
-  <h3>B) I tuoi file su un pad</h3>
+  <h3>B) Il catalogo suoni — pescare da tutti i generi insieme</h3>
+  <p>Il pannello <b>🗂️ Catalogo suoni</b>, a fianco della griglia, elenca <b>tutti</b> i suoni dei 9 generi in una lista a comparsa: genere → categoria (Drums, Bass, Melodic…) → singolo suono. Comodo quando vuoi solo <i>un</i> loop preciso, senza caricare un genere intero e perdere quello che hai già sui pad.</p>
+  <ul>
+    <li><b>Clic</b> su un suono = ascolto rapido, senza toccare nessun pad.</li>
+    <li><b>Ctrl + trascina</b> un suono dal catalogo su un pad per piazzarlo lì. Funziona solo su un <b>pad vuoto</b>, in una colonna <b>libera oppure già della stessa categoria</b> del suono (lo stesso colore che vedi in griglia) — così non finisci per mescolare per sbaglio batteria e basso nella stessa traccia. Se il piazzamento non è ammesso, l'app te lo segnala e non sposta nulla.</li>
+  </ul>
+  <h3>C) Kit personalizzati — costruisci e salva la tua combinazione</h3>
+  <p>Nella stessa barra <b>🎚️ Genere</b>, oltre ai 9 generi di fabbrica puoi creare e riusare le tue combinazioni:</p>
+  <ul>
+    <li><span class="btn">+ Nuovo kit</span> svuota la griglia del banco attivo per ripartire da zero: dai un nome al kit, poi riempi i pad trascinando suoni dal catalogo (Ctrl+trascina) o dai tuoi file.</li>
+    <li><span class="btn">💾 Salva come kit</span> salva lo stato attuale — suoni, BPM, mixer, effetti — come voce del menù <b>Genere</b>, sotto "I tuoi kit": si richiama in seguito come un genere qualsiasi, con <span class="btn primary">▶ Carica genere</span>.</li>
+    <li><span class="btn">🗑️ Elimina kit</span> rimuove il kit selezionato dal menù (compare solo quando hai un tuo kit scelto, non un genere di fabbrica).</li>
+    <li><span class="btn">📂 Esporta kit</span> scarica il kit selezionato come file <code>.lpkit</code>, per portarlo su un altro computer o condividerlo; <span class="btn">📥 Importa kit</span> lo ricarica da un file <code>.lpkit</code> ricevuto.</li>
+  </ul>
+  <div class="note">I kit personalizzati restano salvati nel browser anche chiudendo la pagina, e si ritrovano al riavvio nel menù <b>Genere</b>.</div>
+  <h3>D) I tuoi file su un pad</h3>
   <ul>
     <li><b>Trascina</b> un file audio (WAV o MP3) dal computer direttamente sopra un pad.</li>
     <li>Oppure <b>seleziona</b> un pad (clic) e premi <span class="btn">📁 Carica su pad selezionato</span> (scorciatoia <kbd>L</kbd>), poi scegli il file.</li>
   </ul>
-  <h3>C) Set salvati — qualità audio superiore</h3>
+  <h3>E) Set salvati — qualità audio superiore</h3>
   <p>Premi <span class="btn">📂 Apri set</span> e scegli un file <code>.lpstudio</code> dalla cartella <b>Launchpad Sets</b>. Sono gli stessi generi ma in qualità più alta dei suoni incorporati, con tutte le impostazioni (modalità, gain, pattern, preset) già memorizzate.</p>
-  <h3>D) Registrare dal microfono su un pad</h3>
+  <h3>F) Registrare dal microfono su un pad</h3>
   <ol>
     <li>Seleziona un pad vuoto (o da sovrascrivere).</li>
     <li>Premi <span class="btn rec">● Registra da microfono</span> (scorciatoia <kbd>R</kbd>) e consenti l'accesso al microfono.</li>
