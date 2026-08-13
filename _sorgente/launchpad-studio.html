@@ -1171,6 +1171,15 @@ function reversedBuffer(buf){ const n=buf.numberOfChannels,len=buf.length,nb=ac(
 // questo script e quello vendorizzato sono due <script> distinti: la classe non attraversa il
 // confine via scope lessicale, solo via l'assegnazione a window fatta in soundtouch-vendor.js
 // (coerente con altri riferimenti window.* gia' presenti in questo file, es. window.AudioContext).
+// NOTA CODA: Stretch.process() elabora a blocchi (soglia sampleReq, tipicamente ~100-200ms) e
+// non esiste flush() nella libreria: una singola chiamata a process() lascia sempre un resto
+// sotto soglia intrappolato nella FIFO d'ingresso, mai emesso in uscita. Su clip lunghe e' un
+// arrotondamento trascurabile, ma sui one-shot brevi tipici di quest'app (spesso 200-500ms,
+// percussioni/strumenti) tronca udibilmente la coda/decadimento. Si accoda quindi silenzio
+// abbondante (2s, ben oltre qualunque sampleReq realistico) cosi' che l'intero segnale reale
+// attraversi la soglia e venga emesso, poi si ritaglia l'uscita alla lunghezza attesa
+// (len/tempoFactor, rapporto garantito indipendente dal pitch) con un piccolo margine per il
+// ritardo interno della pipeline, scartando il resto (silenzio di padding).
 async function applyTimeStretch(buffer, tempoFactor, semitones){
   const st = new window.SoundTouch();
   st.stretch.setParameters(buffer.sampleRate, 0, 0, 0); // 0 = usa i default automatici, ma con lo sample rate corretto
@@ -1178,17 +1187,24 @@ async function applyTimeStretch(buffer, tempoFactor, semitones){
   st.pitchSemitones = semitones;
   const nCh = buffer.numberOfChannels, len = buffer.length, sr = buffer.sampleRate;
   const chans = []; for(let ch=0; ch<nCh; ch++) chans.push(buffer.getChannelData(ch));
-  const interleaved = new Float32Array(len*2);   // SoundTouch lavora sempre in coppie (mono duplicato se serve)
+  const padFrames = Math.ceil(sr * 2); // silenzio di coda per forzare lo svuotamento completo della FIFO
+  const totalLen = len + padFrames;
+  const interleaved = new Float32Array(totalLen*2);   // SoundTouch lavora sempre in coppie (mono duplicato se serve); il padding resta a zero per costruzione
   for(let i=0;i<len;i++){ interleaved[i*2]=chans[0][i]; interleaved[i*2+1]=(nCh>1?chans[1][i]:chans[0][i]); }
-  st.inputBuffer.putSamples(interleaved, 0, len);
+  st.inputBuffer.putSamples(interleaved, 0, totalLen);
   st.process();
-  const outFrames = st.outputBuffer.frameCount;
-  const outLen = Math.max(1, outFrames);
+  const producedFrames = st.outputBuffer.frameCount;
+  // margine di sicurezza (4x la finestra di overlap WSOLA) per il piccolo ritardo posizione-in/
+  // posizione-out della pipeline: senza margine si rischia di ritagliare via l'ultimo istante di
+  // audio reale, appena prima del silenzio di padding.
+  const marginFrames = Math.ceil(st.stretch.overlapLength * 4);
+  const targetLen = Math.round(len / tempoFactor) + marginFrames;
+  const outLen = Math.max(1, Math.min(targetLen, producedFrames));
   const outInterleaved = new Float32Array(outLen*2);
-  if(outFrames>0) st.outputBuffer.receiveSamples(outInterleaved, outFrames);
+  if(producedFrames>0) st.outputBuffer.receiveSamples(outInterleaved, Math.min(outLen, producedFrames));
   const out = ac().createBuffer(nCh, outLen, sr);
   const outL = out.getChannelData(0), outR = nCh>1 ? out.getChannelData(1) : null;
-  for(let i=0;i<outFrames;i++){ outL[i]=outInterleaved[i*2]; if(outR) outR[i]=outInterleaved[i*2+1]; }
+  for(let i=0;i<outLen;i++){ outL[i]=outInterleaved[i*2]; if(outR) outR[i]=outInterleaved[i*2+1]; }
   return out;
 }
 document.getElementById('clipRev').onchange=(e)=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl){ e.target.checked=false; return; }
