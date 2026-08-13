@@ -8,3 +8,6 @@ _sorgente/drumkit_preset.json
 Launchpad Sets/
 _Archivio/
 Registrazioni/
+
+# Worktree per lavoro isolato (superpowers:using-git-worktrees)
+.worktrees/
