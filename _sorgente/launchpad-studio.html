@@ -27,6 +27,7 @@
   .pad.dragover{outline:2px dashed var(--accent);outline-offset:-2px}
   .pad.dragging{opacity:.35}
   .catalog-box{width:340px;max-height:640px;overflow-y:auto}
+  .catalog-box.dragover{outline:2px dashed var(--red);outline-offset:-2px}
   .cat-row{font-size:12px;color:var(--txt);padding:3px 6px;border-radius:5px;cursor:pointer}
   .cat-row:hover{background:var(--panel2)}
   .cat-row.previewing{background:var(--accent);color:#04101f}
@@ -812,7 +813,15 @@ const padEls=[];
 // la sorgente: {kind:'pad',r,c} per lo spostamento tra pad, {kind:'catalog',genre,idx} per il piazzamento
 // dal pannello Catalogo suoni (vedi catalog_ui.js).
 let dragSource=null;
-function isValidPadMoveTarget(src,r,c){ return trackColorIdx[c]===trackColorIdx[src.c]; }
+// trackColorIdx e' solo una cache dei colori (ricalcolata a scatti: cambio banco/genere), non affidabile
+// come regola di validita' subito dopo un piazzamento dal catalogo (colonna aggiornata, le altre no) -
+// stesso motivo per cui isValidDropTarget del catalogo usa columnCategoryOf "live" invece di trackColorIdx.
+function isValidPadMoveTarget(src,r,c){
+  const g=activeGrid();
+  const cl=g[src.r][src.c]; if(!cl) return false;
+  const dstCat=columnCategoryOf(g,c);
+  return dstCat===null || dstCat===categoryOf(cl.name);
+}
 for(let c=0;c<COLS;c++){ const d=document.createElement('div'); d.textContent='T'+(c+1); colhdr.appendChild(d); }
 for(let r=0;r<ROWS;r++){ padEls.push([]);
   for(let c=0;c<COLS;c++){
@@ -1058,7 +1067,8 @@ async function loadFileToPad(file,r,c){
 }
 document.getElementById('loadBtn').onclick=()=>document.getElementById('fileInput').click();
 document.getElementById('fileInput').onchange=(e)=>{const f=e.target.files[0]; if(f) loadFileToPad(f,selected.r,selected.c); e.target.value='';};
-document.getElementById('clearBtn').onclick=()=>{const{r,c}=selected; pushUndo(); if(perfMode===null) stopTrackClip(c,true); activeGrid()[r][c]=null; renderPad(r,c); updateLed(r,c);};
+function clearGridPad(r,c){ pushUndo(); if(perfMode===null) stopTrackClip(c,true); activeGrid()[r][c]=null; renderPad(r,c); updateLed(r,c); }
+document.getElementById('clearBtn').onclick=()=>{const{r,c}=selected; clearGridPad(r,c);};
 function stopPadSound(r,c){ if(trackState[c].playingRow===r) stopTrackClip(c,true); stopGate(r,c); }
 document.getElementById('padMode').onchange=(e)=>{ const{r,c}=selected; const g=activeGrid(); if(g[r][c]){ pushUndo(); if(perfMode===null) stopPadSound(r,c); g[r][c].mode=e.target.value; renderPad(r,c); updateLed(r,c);} };
 // Tasto destro su un pad = scorciatoia per impostarlo one-shot senza passare dal menu a tendina.

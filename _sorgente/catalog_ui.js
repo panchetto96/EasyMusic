@@ -1,4 +1,5 @@
 let catalogRowEls={};   // "genere|indice" -> elemento riga, per lo stato "in ascolto" (previewing)
+let catalogBoxEl=null;   // il pannello .catalog-box stesso, per i test (trascinamento pad->catalogo)
 // Colore per categoria nel catalogo: stesso hash deterministico su tutti i generi (es. "Drums" sempre
 // lo stesso colore ovunque compaia), riusando la stessa tavolozza trackColors gia' usata per le colonne
 // della griglia — coerenza visiva, non serve una mappa fissa categoria->colore da mantenere a mano.
@@ -10,6 +11,7 @@ function catalogCategoryColor(cat){
   if(typeof GENRES==='undefined') return;
   const wrap=document.querySelector('.wrap');
   const box=document.createElement('div'); box.className='panel catalog-box';
+  catalogBoxEl=box;
   const h=document.createElement('h2'); h.textContent='🗂️ Catalogo suoni'; box.appendChild(h);
   const hint=document.createElement('div'); hint.className='hint'; hint.style.marginBottom='8px';
   hint.textContent="Click = ascolto rapido. Ctrl+trascina su un pad per metterlo li'.";
@@ -43,5 +45,18 @@ function catalogCategoryColor(cat){
     });
     box.appendChild(det);
   });
+  // Ctrl+trascina un pad DENTRO il catalogo per svuotarlo (rimuove il suono dalla griglia) — direzione
+  // inversa del piazzamento catalogo->pad. Vale ovunque nel pannello (righe, etichette, spazio vuoto),
+  // non solo su una riga precisa: pointerup bubbla fino a box comunque.
+  box.onpointerenter=()=>{ if(dragSource && dragSource.kind==='pad') box.classList.add('dragover'); };
+  box.onpointerleave=()=>{ box.classList.remove('dragover'); };
+  box.onpointerup=()=>{
+    box.classList.remove('dragover');
+    if(dragSource && dragSource.kind==='pad'){
+      const {r,c}=dragSource; dragSource=null;
+      padEls[r][c].classList.remove('dragging');
+      clearGridPad(r,c);
+    }
+  };
   wrap.appendChild(box);
 })();
