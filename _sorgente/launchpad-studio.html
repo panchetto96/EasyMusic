@@ -1109,7 +1109,7 @@ document.getElementById('clipTrimEnd').addEventListener('pointerdown',()=>pushUn
 document.getElementById('saveModBtn').onclick=async ()=>{
   const genre=loadedGenreKeyByBank[activeBank]; if(!genre) return;
   const {r,c}=selected; const cl=clips[r][c]; if(!cl) return;
-  await saveGenreOverride(genre,r,c,{trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,reversed:!!cl.reversed,pitch:cl.pitch||0,sourceBpm:cl.sourceBpm||null});
+  await saveGenreOverride(genre,r,c,{trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,reversed:!!cl.reversed,pitch:cl.pitch||0,sourceBpm:cl.sourceBpm||null,fadeIn:cl.fadeIn||0,fadeOut:cl.fadeOut||0,filterCutoff:cl.filterCutoff!=null?cl.filterCutoff:1,tempoStretch:cl.tempoStretch||1,toneShift:cl.toneShift||0});
   const btn=document.getElementById('saveModBtn'); const orig=btn.textContent;
   btn.textContent='✓ Salvato'; setTimeout(()=>{ btn.textContent=orig; },1200);
 };
@@ -1290,7 +1290,8 @@ document.getElementById('clipRev').onchange=async (e)=>{ const{r,c}=selected; co
 let clipSettingsClipboard=null;
 document.getElementById('copyClipBtn').onclick=()=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl) return;
   clipSettingsClipboard={mode:cl.mode||'loop',gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,
-    trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,reversed:!!cl.reversed};
+    trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,reversed:!!cl.reversed,
+    fadeIn:cl.fadeIn||0,fadeOut:cl.fadeOut||0,filterCutoff:cl.filterCutoff!=null?cl.filterCutoff:1,tempoStretch:cl.tempoStretch||1,toneShift:cl.toneShift||0};
   document.getElementById('pasteClipBtn').disabled=false; };
 document.getElementById('pasteClipBtn').onclick=async ()=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl||!clipSettingsClipboard) return;
   pushUndo();
@@ -1770,7 +1771,7 @@ document.getElementById('saveBtn').onclick=()=>{
     tracks:tracks.map(t=>({volume:t.volume,muted:t.muted,solo:t.solo,low:t.low||0,high:t.high||0,revSend:t.revSend||0,dlySend:t.dlySend||0})), snapshots:snapshots, banks:[]};
   for(let b=0;b<NBANKS;b++){ const bankClips=[]; const grid=banks[b];
     for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const cl=grid[r][c];
-      if(cl&&cl.raw) bankClips.push({r,c,name:cl.name,mime:cl.mime,mode:cl.mode||'loop',reversed:cl.reversed||false,gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,steps:cl.steps||null,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,sourceBpm:cl.sourceBpm||null,data:abToB64(cl.raw)}); }
+      if(cl&&cl.raw) bankClips.push({r,c,name:cl.name,mime:cl.mime,mode:cl.mode||'loop',reversed:cl.reversed||false,gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,steps:cl.steps||null,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,sourceBpm:cl.sourceBpm||null,fadeIn:cl.fadeIn||0,fadeOut:cl.fadeOut||0,filterCutoff:cl.filterCutoff!=null?cl.filterCutoff:1,tempoStretch:cl.tempoStretch||1,toneShift:cl.toneShift||0,data:abToB64(cl.raw)}); }
     out.banks.push(bankClips); }
   const kitClips=[];
   for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const cl=drumKit[r][c];
@@ -1813,8 +1814,10 @@ document.getElementById('setInput').onchange=async(e)=>{
     async function loadClipInto(grid,cl,srcBpm){
       const ab=b64ToAb(cl.data); const raw=ab.slice(0);
       try{ const audio=await ac().decodeAudioData(ab);
-        const nc={buffer:audio,name:cl.name,raw,mime:cl.mime,mode:cl.mode||'loop',sourceBpm:cl.sourceBpm!=null?cl.sourceBpm:srcBpm,gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,steps:Array.isArray(cl.steps)?cl.steps:null,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null};
-        if(cl.reversed){ nc.origBuffer=audio; nc.revBuffer=reversedBuffer(audio); nc.buffer=nc.revBuffer; nc.reversed=true; }
+        const nc={buffer:audio,name:cl.name,raw,mime:cl.mime,mode:cl.mode||'loop',sourceBpm:cl.sourceBpm!=null?cl.sourceBpm:srcBpm,gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,steps:Array.isArray(cl.steps)?cl.steps:null,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,fadeIn:cl.fadeIn||0,fadeOut:cl.fadeOut||0,filterCutoff:cl.filterCutoff!=null?cl.filterCutoff:1,tempoStretch:cl.tempoStretch||1,toneShift:cl.toneShift||0};
+        nc.origBuffer=audio; nc.reversed=!!cl.reversed;
+        if((nc.tempoStretch&&nc.tempoStretch!==1) || nc.toneShift){ await rebuildProcessedBuffer(nc); }
+        else if(cl.reversed){ nc.buffer=reversedBuffer(audio); }
         grid[cl.r][cl.c]=nc;
       }catch(err){}
     }
@@ -1934,6 +1937,7 @@ function buildAutosaveSnapshot(){
       if(cl&&cl.raw) bankClips.push({r,c,name:cl.name,mime:cl.mime,mode:cl.mode||'loop',reversed:cl.reversed||false,
         gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,steps:cl.steps||null,
         trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,sourceBpm:cl.sourceBpm||null,
+        fadeIn:cl.fadeIn||0,fadeOut:cl.fadeOut||0,filterCutoff:cl.filterCutoff!=null?cl.filterCutoff:1,tempoStretch:cl.tempoStretch||1,toneShift:cl.toneShift||0,
         raw:cl.raw}); }
     out.banks.push(bankClips); }
   const kitClips=[];
@@ -1993,8 +1997,10 @@ async function restoreAutosave(snap){
   for(let b=0;b<NBANKS;b++){
     for(const cl of (snap.banks&&snap.banks[b])||[]){
       try{ const raw=cl.raw; const audio=await ac().decodeAudioData(raw.slice(0));
-        const nc={buffer:audio,name:cl.name,raw,mime:cl.mime,mode:cl.mode||'loop',gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,steps:Array.isArray(cl.steps)?cl.steps:null,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,sourceBpm:cl.sourceBpm!=null?cl.sourceBpm:(snap.bpm||null)};
-        if(cl.reversed){ nc.origBuffer=audio; nc.revBuffer=reversedBuffer(audio); nc.buffer=nc.revBuffer; nc.reversed=true; }
+        const nc={buffer:audio,name:cl.name,raw,mime:cl.mime,mode:cl.mode||'loop',gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,steps:Array.isArray(cl.steps)?cl.steps:null,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,sourceBpm:cl.sourceBpm!=null?cl.sourceBpm:(snap.bpm||null),fadeIn:cl.fadeIn||0,fadeOut:cl.fadeOut||0,filterCutoff:cl.filterCutoff!=null?cl.filterCutoff:1,tempoStretch:cl.tempoStretch||1,toneShift:cl.toneShift||0};
+        nc.origBuffer=audio; nc.reversed=!!cl.reversed;
+        if((nc.tempoStretch&&nc.tempoStretch!==1) || nc.toneShift){ await rebuildProcessedBuffer(nc); }
+        else if(cl.reversed){ nc.buffer=reversedBuffer(audio); }
         banks[b][cl.r][cl.c]=nc;
       }catch(e){}
     }
