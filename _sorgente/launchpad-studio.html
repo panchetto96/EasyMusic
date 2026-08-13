@@ -1321,7 +1321,15 @@ document.getElementById('pasteClipBtn').onclick=async ()=>{ const{r,c}=selected;
   // vanno riconciliati con la stessa formula usata dall'handler di #clipTempo, altrimenti sourceBpm resta
   // ancorato alla vecchia velocita' mentre il buffer suona gia' a quella nuova (bug trovato in review
   // whole-branch). Il Tono non tocca mai sourceBpm, qui come altrove.
-  if(cl.tempoStretch!==1){
+  // La riconciliazione deve scattare anche quando il tempoStretch incollato E' quello di default (1) MA
+  // il pad di destinazione era GIA' stretchato (sourceBpmOriginale gia' presente): altrimenti il buffer
+  // torna correttamente alla velocita' nativa mentre sourceBpm resta ancorato al vecchio valore stretchato
+  // (gap residuo trovato nella re-review del giro 1 — stessa classe di corruzione del Critical, raggiungibile
+  // via incolla invece che via reload). Con tempoStretch===1 la formula si autocorregge da sola
+  // (sourceBpmOriginale*1 = sourceBpmOriginale), quindi va bene farla scattare incondizionatamente ogni
+  // volta che il pad ha gia' un'ancora registrata; un pad MAI stretchato (sourceBpmOriginale ancora nullo)
+  // e che riceve un incolla con tempoStretch di default resta invece intoccato, come deve.
+  if(cl.tempoStretch!==1 || cl.sourceBpmOriginale!=null){
     if(cl.sourceBpmOriginale==null) cl.sourceBpmOriginale=cl.sourceBpm||null;
     if(cl.sourceBpmOriginale!=null) cl.sourceBpm=Math.round(cl.sourceBpmOriginale*cl.tempoStretch);
   }
