@@ -1,3 +1,4 @@
+let newKitBtn=null, draftKitName=null;
 (function(){
   const box=document.querySelector('.grid-box');
   const bar=document.createElement('div');
@@ -10,6 +11,17 @@
   btn.style.cssText='background:#4ea1ff;border:1px solid #4ea1ff;color:#04101f;font-weight:600;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:13px';
   const stat=document.createElement('span'); stat.style.cssText='font-size:12px;color:#8b93a4';
   bar.appendChild(lab); bar.appendChild(sel); bar.appendChild(btn); bar.appendChild(stat);
+  newKitBtn=document.createElement('button'); newKitBtn.textContent='+ Nuovo kit';
+  newKitBtn.style.cssText='background:#20242e;border:1px solid #2c313d;color:#e8ebf1;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:13px';
+  bar.appendChild(newKitBtn);
+  newKitBtn.onclick=()=>{
+    const name=prompt('Nome del kit:'); if(!name) return;
+    pushUndo();
+    for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) clips[r][c]=null;
+    recomputeTrackColors(); renderAll(); refreshAllLeds();
+    draftKitName=name;
+    stat.textContent='Nuovo kit «'+name+'» — trascina suoni dal catalogo per riempirlo.';
+  };
   box.insertBefore(bar, box.firstChild);
   async function loadGenre(key){
     const data=GENRES[key]; if(!data) return;
