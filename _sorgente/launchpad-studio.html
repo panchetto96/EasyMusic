@@ -1257,13 +1257,32 @@ async function rebuildProcessedBuffer(cl){
   }
   cl.buffer = cl.reversed ? reversedBuffer(base) : base;
 }
+// Tempo/Tono possono cambiare la durata del buffer ATTIVO (time-stretch reale). trimStart/trimEnd sono
+// espressi in secondi su quel buffer, quindi vanno riscalati nello stesso rapporto in cui e' cambiata
+// la durata — altrimenti dopo un cambio di Tempo/Tono il taglio punta silenziosamente alla porzione
+// sbagliata (o fuori scala) del nuovo buffer, piu' corto o piu' lungo di prima (bug trovato in review
+// del Task 4). Wrapper attorno a rebuildProcessedBuffer, che resta volutamente "puro" (nessun effetto
+// collaterale sul trim) cosi' i suoi test restano validi invariati.
+async function rebuildProcessedBufferRescalingTrim(cl){
+  const oldDur = cl.buffer ? cl.buffer.duration : 0;
+  await rebuildProcessedBuffer(cl);
+  const newDur = cl.buffer ? cl.buffer.duration : 0;
+  if(oldDur>0 && newDur>0 && oldDur!==newDur){
+    const ratio = newDur/oldDur;
+    cl.trimStart = (cl.trimStart||0)*ratio;
+    if(cl.trimEnd!=null) cl.trimEnd = cl.trimEnd*ratio;
+  }
+}
 document.getElementById('clipRev').onchange=async (e)=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl){ e.target.checked=false; return; }
   pushUndo();
-  if(!cl.origBuffer) cl.origBuffer=cl.buffer;
   // trimStart/trimEnd sono in secondi sul buffer ATTIVO: al ribaltamento vanno specchiati (dur-e, dur-s),
   // altrimenti dopo il reverse suona la porzione simmetrica sbagliata invece della stessa porzione al contrario.
-  const dur=cl.origBuffer.duration, s=cl.trimStart||0, en=(cl.trimEnd!=null)?cl.trimEnd:dur;
+  // NB: dur va letto dal buffer ATTIVO (cl.buffer), non da origBuffer — se Tempo ha gia' cambiato la durata
+  // del buffer attivo rispetto all'originale, specchiare su origBuffer.duration produce un trim fuori scala
+  // rispetto al buffer che suonera' davvero (bug trovato in review: il pad diventa muto dopo il reverse).
+  const dur=cl.buffer.duration, s=cl.trimStart||0, en=(cl.trimEnd!=null)?cl.trimEnd:dur;
   cl.trimStart=Math.max(0,dur-en); cl.trimEnd=Math.max(0,dur-s);
+  if(!cl.origBuffer) cl.origBuffer=cl.buffer;
   cl.reversed=e.target.checked;
   await rebuildProcessedBuffer(cl);
   selectPad(r,c); };
@@ -1309,17 +1328,19 @@ document.getElementById('clipTempo').onchange=async (e)=>{ const{r,c}=selected; 
   if(cl.sourceBpmOriginale==null) cl.sourceBpmOriginale=cl.sourceBpm||null;
   cl.tempoStretch=newTempo;
   document.getElementById('clipTempoVal').textContent=Math.round(newTempo*100)+'%';
-  if(cl.sourceBpmOriginale!=null) cl.sourceBpm=Math.round(cl.sourceBpmOriginale/newTempo);
-  const csbEl=document.getElementById('clipSourceBpm'); if(csbEl) csbEl.value=cl.sourceBpm||'';
-  await rebuildProcessedBuffer(cl);
-  drawWaveform(cl);
+  // sourceBpmEffettivo = sourceBpmOriginale * tempoFactor (NON diviso): applyTimeStretch con tempoFactor>1
+  // produce un buffer PIU' CORTO (suona piu' veloce), quindi il suo BPM nativo aumenta, non diminuisce.
+  // Vedi spec Sezione 4 (corretta 14/08/2026 dopo che questo esatto bug e' stato trovato in review).
+  if(cl.sourceBpmOriginale!=null) cl.sourceBpm=Math.round(cl.sourceBpmOriginale*newTempo);
+  await rebuildProcessedBufferRescalingTrim(cl);
+  selectPad(r,c);
 };
 document.getElementById('clipTempo').addEventListener('pointerdown',()=>pushUndo());
 document.getElementById('clipTone').onchange=async (e)=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl) return;
   cl.toneShift=+e.target.value;
   document.getElementById('clipToneVal').textContent=cl.toneShift;
-  await rebuildProcessedBuffer(cl);
-  drawWaveform(cl);
+  await rebuildProcessedBufferRescalingTrim(cl);
+  selectPad(r,c);
 };
 document.getElementById('clipTone').addEventListener('pointerdown',()=>pushUndo());
 document.getElementById('detectBpmBtn').onclick=()=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl||!cl.buffer) return;
