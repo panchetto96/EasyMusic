@@ -23,6 +23,8 @@ let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;
     for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) clips[r][c]=null;
     recomputeTrackColors(); renderAll(); refreshAllLeds();
     draftKitName=name;
+    sel.value=Object.keys(GENRES)[0]||'';
+    updateDelKitVisibility();
     stat.textContent='Nuovo kit «'+name+'» — trascina suoni dal catalogo per riempirlo.';
   };
   refreshGenreSelectOptions=function(){
