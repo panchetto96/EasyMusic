@@ -1,4 +1,4 @@
-let newKitBtn=null, draftKitName=null, saveKitBtn=null, delKitBtn=null, customKitOptionEls=[], sel=null, btn=null;
+let newKitBtn=null, draftKitName=null, draftKitOptionEl=null, saveKitBtn=null, delKitBtn=null, customKitOptionEls=[], sel=null, btn=null;
 let exportKitBtn=null, importKitBtn=null, kitFileInput=null, stat=null;
 let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;   // assegnate dentro l'IIFE (chiudono su sel/customKits)
 (function(){
@@ -11,8 +11,8 @@ let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;
   Object.keys(GENRES).forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;sel.appendChild(o);});
   btn=document.createElement('button'); btn.textContent='▶ Carica genere';
   btn.style.cssText='background:#4ea1ff;border:1px solid #4ea1ff;color:#04101f;font-weight:600;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:13px';
-  stat=document.createElement('span'); stat.style.cssText='font-size:12px;color:#8b93a4;min-width:0;flex:1 1 160px';
-  bar.appendChild(lab); bar.appendChild(sel); bar.appendChild(btn); bar.appendChild(stat);
+  stat=document.createElement('span'); stat.style.cssText='font-size:12px;color:#8b93a4;min-width:0;flex:1 1 100%';
+  bar.appendChild(lab); bar.appendChild(sel); bar.appendChild(btn);
   newKitBtn=document.createElement('button'); newKitBtn.textContent='+ Nuovo kit';
   newKitBtn.style.cssText='background:#20242e;border:1px solid #2c313d;color:#e8ebf1;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:13px';
   bar.appendChild(newKitBtn);
@@ -23,7 +23,14 @@ let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;
     for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) clips[r][c]=null;
     recomputeTrackColors(); renderAll(); refreshAllLeds();
     draftKitName=name;
-    sel.value=Object.keys(GENRES)[0]||'';
+    // Voce temporanea "draft" nel <select>, cosi' il nome appena scelto risulta visibilmente
+    // selezionato al posto dell'ultimo genere caricato invece di lasciare un residuo fuorviante
+    // (es. "Techno Industrial" mentre in realta' si sta costruendo un kit vuoto). Sparisce al
+    // primo salvataggio (sostituita dalla voce reale "kit:id") o cambiando selezione a mano.
+    if(draftKitOptionEl) draftKitOptionEl.remove();
+    draftKitOptionEl=document.createElement('option'); draftKitOptionEl.value='draft'; draftKitOptionEl.textContent=name;
+    sel.appendChild(draftKitOptionEl);
+    sel.value='draft';
     updateDelKitVisibility();
     stat.textContent='Nuovo kit «'+name+'» — trascina suoni dal catalogo per riempirlo.';
   };
@@ -40,7 +47,10 @@ let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;
     updateDelKitVisibility();
   };
   updateDelKitVisibility=function(){ delKitBtn.style.display = sel.value.startsWith('kit:') ? 'inline-block' : 'none'; };
-  sel.onchange=updateDelKitVisibility;
+  sel.onchange=()=>{
+    if(draftKitOptionEl && sel.value!=='draft'){ draftKitOptionEl.remove(); draftKitOptionEl=null; }
+    updateDelKitVisibility();
+  };
 
   saveKitBtn=document.createElement('button'); saveKitBtn.textContent='💾 Salva come kit';
   saveKitBtn.style.cssText=newKitBtn.style.cssText;
@@ -73,6 +83,7 @@ let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;
     } else {
       customKits.push(kit);
     }
+    if(draftKitOptionEl){ draftKitOptionEl.remove(); draftKitOptionEl=null; }
     refreshGenreSelectOptions();
     sel.value='kit:'+kit.id;
     updateDelKitVisibility();
@@ -132,6 +143,7 @@ let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;
   };
   refreshGenreSelectOptions();
   updateDelKitVisibility();
+  bar.appendChild(stat);   // in fondo e su riga propria (flex-basis:100%): non deve mai spingere i bottoni
   box.insertBefore(bar, box.firstChild);
   async function loadGenreData(data,label){
     stat.textContent='Carico '+label+'…'; await new Promise(r=>setTimeout(r,20));
