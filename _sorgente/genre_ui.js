@@ -11,7 +11,7 @@ let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;
   Object.keys(GENRES).forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;sel.appendChild(o);});
   btn=document.createElement('button'); btn.textContent='▶ Carica genere';
   btn.style.cssText='background:#4ea1ff;border:1px solid #4ea1ff;color:#04101f;font-weight:600;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:13px';
-  stat=document.createElement('span'); stat.style.cssText='font-size:12px;color:#8b93a4';
+  stat=document.createElement('span'); stat.style.cssText='font-size:12px;color:#8b93a4;min-width:0;flex:1 1 160px';
   bar.appendChild(lab); bar.appendChild(sel); bar.appendChild(btn); bar.appendChild(stat);
   newKitBtn=document.createElement('button'); newKitBtn.textContent='+ Nuovo kit';
   newKitBtn.style.cssText='background:#20242e;border:1px solid #2c313d;color:#e8ebf1;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:13px';
