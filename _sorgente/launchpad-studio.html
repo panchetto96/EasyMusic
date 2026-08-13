@@ -47,7 +47,14 @@
   .trk button.m.on{background:var(--red);color:#1a0505;border-color:var(--red)}
   .trk button.s.on{background:var(--yellow);color:#1a1500;border-color:var(--yellow)}
   .panel{background:var(--panel);border:1px solid var(--line);border-radius:14px;padding:16px;width:310px}
-  .panel h2{font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);margin:0 0 10px}
+  .sec-details{margin-bottom:0}
+  .sec-details>summary{font-size:13px;text-transform:uppercase;letter-spacing:.5px;color:var(--dim);
+       margin:0 0 10px;cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;user-select:none}
+  .sec-details>summary:hover{color:var(--txt)}
+  .sec-details>summary::-webkit-details-marker{display:none}
+  .sec-details>summary::before{content:'▸';font-size:10px;transition:transform .15s;flex:none}
+  .sec-details[open]>summary::before{transform:rotate(90deg)}
+  .sec-details>summary+*{margin-top:0}
   .row{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
   label{font-size:13px;color:var(--dim)}
   select,input[type=number]{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
@@ -120,15 +127,18 @@
 
     <div class="panel">
       <div class="warnbox" id="warnbox"></div>
-      <h2>Connessione Launchpad</h2>
+      <details class="sec-details" open>
+      <summary>Connessione Launchpad</summary>
       <div class="row"><span class="status"><span class="dot" id="midiDot"></span><span id="midiState">Avvio…</span></span></div>
       <div class="row"><label>Uscita MIDI (LED)</label><select id="midiOut"></select></div>
       <div class="row"><label>Ingresso MIDI (pad)</label><select id="midiIn"></select></div>
       <div class="row"><button class="act" id="reconnect">🔄 Rileva di nuovo</button><button class="act" id="testLeds">💡 Test LED</button><button class="act" id="resetLive">↩︎ Reset device</button></div>
       <details><summary>Diagnostica</summary><pre id="diag">—</pre></details>
+      </details>
 
       <div class="divider"></div>
-      <h2>Transport</h2>
+      <details class="sec-details" open>
+      <summary>Transport</summary>
       <div class="row">
         <div><div class="bpm-big"><span id="bpmVal">120</span> <span style="font-size:14px;color:var(--dim)">BPM</span></div>
         <div class="beat" id="beatDots"><span></span><span></span><span></span><span></span></div></div>
@@ -151,9 +161,11 @@
       <div class="row"><label>Quantizza lancio</label>
         <select id="quant"><option value="off" selected>Subito</option><option value="beat">A movimento</option><option value="bar">A battuta</option><option value="phrase">A frase</option></select>
       </div>
+      </details>
 
       <div class="divider"></div>
-      <h2>Suoni & Set</h2>
+      <details class="sec-details" open>
+      <summary>Suoni & Set</summary>
       <div class="row"><button class="act" id="loadBtn">📁 Carica su pad selezionato</button></div>
       <input type="file" id="fileInput" accept="audio/*" style="display:none">
       <div class="row"><button class="rec" id="recBtn">● Registra da microfono</button></div>
@@ -190,6 +202,7 @@
       <div class="row" style="font-size:12px"><span id="autosaveStatus" class="hint">Autosave: —</span>
         <button class="act" id="clearAutosaveBtn" style="padding:4px 8px;font-size:11px" title="Cancella la sessione autosalvata">🗑️ Cancella autosave</button></div>
       <div class="hint">Pad selezionato: <b id="selInfo">nessuno</b></div>
+      </details>
 
       <div class="divider"></div>
       <div class="hint"><b>Scorciatoie:</b> <kbd>Spazio</kbd> Play/Stop · <kbd>L</kbd> carica · <kbd>R</kbd> registra · <kbd>Ctrl</kbd>+<kbd>Z</kbd> annulla · <kbd>Ctrl</kbd>+<kbd>Y</kbd> ripeti.</div>
@@ -1513,7 +1526,7 @@ document.getElementById('saveBtn').onclick=()=>{
     tracks:tracks.map(t=>({volume:t.volume,muted:t.muted,solo:t.solo,low:t.low||0,high:t.high||0,revSend:t.revSend||0,dlySend:t.dlySend||0})), snapshots:snapshots, banks:[]};
   for(let b=0;b<NBANKS;b++){ const bankClips=[]; const grid=banks[b];
     for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const cl=grid[r][c];
-      if(cl&&cl.raw) bankClips.push({r,c,name:cl.name,mime:cl.mime,mode:cl.mode||'loop',reversed:cl.reversed||false,gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,steps:cl.steps||null,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,data:abToB64(cl.raw)}); }
+      if(cl&&cl.raw) bankClips.push({r,c,name:cl.name,mime:cl.mime,mode:cl.mode||'loop',reversed:cl.reversed||false,gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,steps:cl.steps||null,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,sourceBpm:cl.sourceBpm||null,data:abToB64(cl.raw)}); }
     out.banks.push(bankClips); }
   const kitClips=[];
   for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const cl=drumKit[r][c];
@@ -1555,7 +1568,7 @@ document.getElementById('setInput').onchange=async(e)=>{
     async function loadClipInto(grid,cl,srcBpm){
       const ab=b64ToAb(cl.data); const raw=ab.slice(0);
       try{ const audio=await ac().decodeAudioData(ab);
-        const nc={buffer:audio,name:cl.name,raw,mime:cl.mime,mode:cl.mode||'loop',sourceBpm:srcBpm,gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,steps:Array.isArray(cl.steps)?cl.steps:null,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null};
+        const nc={buffer:audio,name:cl.name,raw,mime:cl.mime,mode:cl.mode||'loop',sourceBpm:cl.sourceBpm!=null?cl.sourceBpm:srcBpm,gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,steps:Array.isArray(cl.steps)?cl.steps:null,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null};
         if(cl.reversed){ nc.origBuffer=audio; nc.revBuffer=reversedBuffer(audio); nc.buffer=nc.revBuffer; nc.reversed=true; }
         grid[cl.r][cl.c]=nc;
       }catch(err){}
@@ -1640,7 +1653,7 @@ function buildAutosaveSnapshot(){
     for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const cl=grid[r][c];
       if(cl&&cl.raw) bankClips.push({r,c,name:cl.name,mime:cl.mime,mode:cl.mode||'loop',reversed:cl.reversed||false,
         gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,steps:cl.steps||null,
-        trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,
+        trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,sourceBpm:cl.sourceBpm||null,
         raw:cl.raw}); }
     out.banks.push(bankClips); }
   const kitClips=[];
@@ -1699,7 +1712,7 @@ async function restoreAutosave(snap){
   for(let b=0;b<NBANKS;b++){
     for(const cl of (snap.banks&&snap.banks[b])||[]){
       try{ const raw=cl.raw; const audio=await ac().decodeAudioData(raw.slice(0));
-        const nc={buffer:audio,name:cl.name,raw,mime:cl.mime,mode:cl.mode||'loop',gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,steps:Array.isArray(cl.steps)?cl.steps:null,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null};
+        const nc={buffer:audio,name:cl.name,raw,mime:cl.mime,mode:cl.mode||'loop',gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,steps:Array.isArray(cl.steps)?cl.steps:null,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,sourceBpm:cl.sourceBpm!=null?cl.sourceBpm:(snap.bpm||null)};
         if(cl.reversed){ nc.origBuffer=audio; nc.revBuffer=reversedBuffer(audio); nc.buffer=nc.revBuffer; nc.reversed=true; }
         banks[b][cl.r][cl.c]=nc;
       }catch(e){}

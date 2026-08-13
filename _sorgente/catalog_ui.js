@@ -12,10 +12,12 @@ function catalogCategoryColor(cat){
   const wrap=document.querySelector('.wrap');
   const box=document.createElement('div'); box.className='panel catalog-box';
   catalogBoxEl=box;
-  const h=document.createElement('h2'); h.textContent='🗂️ Catalogo suoni'; box.appendChild(h);
+  const sec=document.createElement('details'); sec.className='sec-details'; sec.open=true;
+  const h=document.createElement('summary'); h.textContent='🗂️ Catalogo suoni'; sec.appendChild(h);
+  box.appendChild(sec);
   const hint=document.createElement('div'); hint.className='hint'; hint.style.marginBottom='8px';
   hint.textContent="Click = ascolto rapido. Ctrl+trascina su un pad per metterlo li'.";
-  box.appendChild(hint);
+  sec.appendChild(hint);
   Object.keys(GENRES).forEach(genre=>{
     const det=document.createElement('details');
     const sum=document.createElement('summary'); sum.textContent=genre; det.appendChild(sum);
@@ -43,7 +45,7 @@ function catalogCategoryColor(cat){
       catalogRowEls[genre+'|'+idx]=row;
       groups[cat].appendChild(row);
     });
-    box.appendChild(det);
+    sec.appendChild(det);
   });
   // Ctrl+trascina un pad DENTRO il catalogo per svuotarlo (rimuove il suono dalla griglia) — direzione
   // inversa del piazzamento catalogo->pad. Vale ovunque nel pannello (righe, etichette, spazio vuoto),
