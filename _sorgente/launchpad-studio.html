@@ -180,6 +180,7 @@
           <label>fine</label><input type="range" id="clipTrimEnd" min="0" max="1" step="0.001" value="1" style="flex:1;min-width:60px;accent-color:var(--accent)">
         </div>
       </div>
+      <div class="row"><button class="act" id="saveModBtn" style="display:none" title="Salva taglio/reverse/pitch di questo pad solo per il genere attualmente caricato">💾 Salva modifica</button></div>
       <div class="row"><label style="font-size:12px"><input type="checkbox" id="clipRev"> Reverse (suona al contrario) — pad selezionato</label></div>
       <div class="row" style="font-size:12px;flex-wrap:wrap">
         <label style="display:none">Gain</label><input type="range" id="clipGain" min="0" max="1.5" step="0.01" value="1" style="width:84px;accent-color:var(--accent);display:none">
@@ -927,7 +928,7 @@ function updateBankUI(){ bankBtns.forEach((b,i)=>b.classList.toggle('on',i===act
 async function switchBank(i){ if(i===activeBank||i<0||i>=NBANKS) return;
   await stopAllSmooth(1.0);   // dissolvenza un po' piu' breve del cambio genere (1.2s): qui i suoni sono gia' decodificati, non c'e' attesa di caricamento
   exitPerfMode();   // esce dalla modalita' Drums PRIMA di riassegnare clips al nuovo banco
-  activeBank=i; clips=banks[i]; selectPad(selected.r,selected.c); recomputeTrackColors(); renderAll(); refreshAllLeds(); updateBankUI(); }
+  activeBank=i; clips=banks[i]; selectPad(selected.r,selected.c); recomputeTrackColors(); renderAll(); refreshAllLeds(); updateBankUI(); updateSaveModBtnVisibility(); }
 function cycleBank(){ switchBank((activeBank+1)%NBANKS); }
 let drumsKitBtn=null, perfModeBanner=null;
 function updatePerfModeUI(){
@@ -1048,6 +1049,17 @@ document.getElementById('clipTrimEnd').oninput=(e)=>{ const{r,c}=selected; const
   drawWaveform(cl); };
 document.getElementById('clipTrimStart').addEventListener('pointerdown',()=>pushUndo());
 document.getElementById('clipTrimEnd').addEventListener('pointerdown',()=>pushUndo());
+
+// Salva taglio/reverse/pitch del pad selezionato SOLO per il genere di fabbrica attualmente caricato
+// nel banco attivo (vedi loadedGenreKeyByBank/updateSaveModBtnVisibility) - non tocca altri generi che
+// riusano lo stesso suono, ne' altri pad dello stesso genere.
+document.getElementById('saveModBtn').onclick=async ()=>{
+  const genre=loadedGenreKeyByBank[activeBank]; if(!genre) return;
+  const {r,c}=selected; const cl=clips[r][c]; if(!cl) return;
+  await saveGenreOverride(genre,r,c,{trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,reversed:!!cl.reversed,pitch:cl.pitch||0});
+  const btn=document.getElementById('saveModBtn'); const orig=btn.textContent;
+  btn.textContent='✓ Salvato'; setTimeout(()=>{ btn.textContent=orig; },1200);
+};
 
 function selectPad(r,c){ selected={r,c}; document.getElementById('selInfo').textContent='Traccia '+(c+1)+' · Scena '+(r+1);
   const pm=document.getElementById('padMode'); const cl=activeGrid()[r][c]; if(pm) pm.value=(cl&&cl.mode)||'loop';
@@ -1546,6 +1558,7 @@ document.getElementById('setInput').onchange=async(e)=>{
     loadingSet=true;
     await stopAllSmooth(1.2);
     perfMode=null;   // esce dalla modalita' Drums: qui si sta per sostituire clips/drumKit interi
+    loadedGenreKeyByBank=[null,null,null,null]; updateSaveModBtnVisibility();   // un set aperto non e' un genere di fabbrica
     bpm=data.bpm||120; document.getElementById('bpm').value=bpm; document.getElementById('bpmVal').textContent=bpm;
     bars=data.bars||4; document.getElementById('bars').value=bars;
     quantMode='off'; document.getElementById('quant').value='off';   // default reattivo: parte subito (resta in fase)
@@ -1588,6 +1601,7 @@ document.getElementById('setInput').onchange=async(e)=>{
       for(const cl of data.drumKit) await loadClipInto(drumKit,cl,null);
     }
     snapshots=Array.isArray(data.snapshots)?data.snapshots:new Array(8).fill(null); updatePresetUI();
+    selectPad(selected.r,selected.c);   // riaggiorna il pannello (taglio/reverse/pitch) sul pad gia' selezionato, non solo la griglia
     applyMix(); applyTrackFX(); recomputeTrackColors(); renderAll(); refreshAllLeds(); updatePerfModeUI();
     loadingSet=false;
     doAutosave();
@@ -1641,6 +1655,40 @@ async function loadCustomKitsFromDb(){
   if(typeof refreshGenreSelectOptions==='function') refreshGenreSelectOptions();
 }
 
+// ====================== MODIFICHE PER GENERE (IndexedDB) ======================
+// Override locale di taglio/reverse/pitch per UN pad di UN genere di fabbrica (il genere embedded
+// nell'app resta di sola lettura). Chiave "genere|riga|colonna": non tocca ne' altri generi che
+// riusano lo stesso suono ne' altri pad dello stesso genere. DB separato da kit/autosave.
+const OVR_DB='lpstudioGenreOverrides', OVR_STORE='overrides';
+function ovrDbOpen(){ return new Promise((res,rej)=>{
+  if(typeof indexedDB==='undefined'){ rej(new Error('IndexedDB non disponibile')); return; }
+  const req=indexedDB.open(OVR_DB,1);
+  req.onupgradeneeded=()=>{ req.result.createObjectStore(OVR_STORE); };
+  req.onsuccess=()=>res(req.result); req.onerror=()=>rej(req.error);
+}); }
+async function ovrPut(key,val){ const db=await ovrDbOpen(); return new Promise((res,rej)=>{
+  const tx=db.transaction(OVR_STORE,'readwrite'); tx.objectStore(OVR_STORE).put(val,key);
+  tx.oncomplete=()=>res(); tx.onerror=()=>rej(tx.error); }); }
+async function ovrGetAll(){ const db=await ovrDbOpen(); return new Promise((res,rej)=>{
+  const tx=db.transaction(OVR_STORE,'readonly'); const rq=tx.objectStore(OVR_STORE).getAll();
+  rq.onsuccess=()=>res(rq.result||[]); rq.onerror=()=>rej(rq.error); }); }
+let genreOverrides={};   // "genere|r|c" -> {key,trimStart,trimEnd,reversed,pitch}, dalla IndexedDB
+async function loadGenreOverridesFromDb(){
+  try{ const all=await ovrGetAll(); genreOverrides={}; all.forEach(v=>{ genreOverrides[v.key]=v; }); }catch(e){ genreOverrides={}; }
+}
+async function saveGenreOverride(genre,r,c,data){
+  const key=genre+'|'+r+'|'+c; const val=Object.assign({key},data);
+  await ovrPut(key,val); genreOverrides[key]=val;
+}
+// Traccia, per ciascuno dei 4 banchi, DA QUALE genere di fabbrica proviene il contenuto attuale
+// (null se il banco viene da un kit personalizzato, un file aperto/autosalvato, o "+ Nuovo kit"):
+// serve a sapere a chi appartiene "Salva modifica" e a decidere quando mostrare il bottone.
+let loadedGenreKeyByBank=[null,null,null,null];
+function updateSaveModBtnVisibility(){
+  const btn=document.getElementById('saveModBtn'); if(!btn) return;
+  btn.style.display = (perfMode===null && loadedGenreKeyByBank[activeBank]) ? 'inline-block' : 'none';
+}
+
 function buildAutosaveSnapshot(){
   const out={version:1,ts:Date.now(),bpm,bars,quantMode,phraseBars,activeBank,
     master:audioCtx?+document.getElementById('master').value:1,
@@ -1689,6 +1737,7 @@ async function restoreAutosave(snap){
   try{
   stopAll();
   perfMode=null;   // esce dalla modalita' Drums: qui si sta per sostituire clips/drumKit interi
+  loadedGenreKeyByBank=[null,null,null,null]; updateSaveModBtnVisibility();   // l'autosave non e' un genere di fabbrica
   bpm=snap.bpm||120; document.getElementById('bpm').value=bpm; document.getElementById('bpmVal').textContent=bpm;
   bars=snap.bars||4; document.getElementById('bars').value=bars;
   quantMode=snap.quantMode||'off'; document.getElementById('quant').value=quantMode;
@@ -1728,6 +1777,7 @@ async function restoreAutosave(snap){
   }
   activeBank=Math.min(Math.max(snap.activeBank||0,0),NBANKS-1); clips=banks[activeBank]; updateBankUI();
   snapshots=Array.isArray(snap.snapshots)?snap.snapshots:new Array(8).fill(null); updatePresetUI();
+  selectPad(selected.r,selected.c);   // riaggiorna il pannello (taglio/reverse/pitch) sul pad gia' selezionato, non solo la griglia
   applyMix(); applyTrackFX(); recomputeTrackColors(); renderAll(); refreshAllLeds(); updatePerfModeUI();
   } finally { loadingSet=false; }
 }
@@ -1926,9 +1976,10 @@ document.getElementById('resetLive').onclick=()=>{
 window.addEventListener('beforeunload',()=>{ if(outPort){ try{ outPort.send(SYSEX_LIVE); }catch(e){} } });
 
 // ====================== AVVIO ======================
-selectPad(0,0); renderAll(); initMIDI();
+selectPad(0,0); renderAll(); initMIDI(); updateSaveModBtnVisibility();
 checkAutosaveOnStartup().then(()=>{ if(typeof loadDrumKitPresetIfEmpty==='function') loadDrumKitPresetIfEmpty(); });
 loadCustomKitsFromDb();
+loadGenreOverridesFromDb();
 </script>
 </body>
 </html>

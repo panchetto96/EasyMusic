@@ -22,6 +22,7 @@ let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;
     pushUndo();
     for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) clips[r][c]=null;
     recomputeTrackColors(); renderAll(); refreshAllLeds();
+    loadedGenreKeyByBank[activeBank]=null; updateSaveModBtnVisibility();   // non e' piu' contenuto di un genere di fabbrica
     draftKitName=name;
     // Voce temporanea "draft" nel <select>, cosi' il nome appena scelto risulta visibilmente
     // selezionato al posto dell'ultimo genere caricato invece di lasciare un residuo fuorviante
@@ -145,7 +146,7 @@ let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;
   updateDelKitVisibility();
   bar.appendChild(stat);   // in fondo e su riga propria (flex-basis:100%): non deve mai spingere i bottoni
   box.insertBefore(bar, box.firstChild);
-  async function loadGenreData(data,label){
+  async function loadGenreData(data,label,genreKey){
     stat.textContent='Carico '+label+'…'; await new Promise(r=>setTimeout(r,20));
     pushUndo();
     loadingSet=true;
@@ -176,16 +177,28 @@ let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;
       const src = cl.data!=null ? b64ToAb(cl.data) : cl.raw.slice(0);
       const raw = src.slice(0);
       const audio=await ac().decodeAudioData(src);
-      clips[cl.r][cl.c]={buffer:audio,name:cl.name,raw,mime:cl.mime,mode:cl.mode||'loop',sourceBpm:cl.sourceBpm||data.bpm,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null};
+      const nc={buffer:audio,name:cl.name,raw,mime:cl.mime,mode:cl.mode||'loop',sourceBpm:cl.sourceBpm||data.bpm,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null};
+      // Se questo pad ha una modifica salvata per QUESTO genere (vedi saveGenreOverride), la applica
+      // sopra ai valori di fabbrica - non tocca altri generi che riusano lo stesso suono.
+      if(genreKey){
+        const ovr=genreOverrides[genreKey+'|'+cl.r+'|'+cl.c];
+        if(ovr){
+          nc.trimStart=ovr.trimStart||0; nc.trimEnd=ovr.trimEnd!=null?ovr.trimEnd:null; nc.pitch=ovr.pitch||0;
+          if(ovr.reversed){ nc.origBuffer=audio; nc.revBuffer=reversedBuffer(audio); nc.buffer=nc.revBuffer; nc.reversed=true; }
+        }
+      }
+      clips[cl.r][cl.c]=nc;
       ok++;
     }catch(e){} }
+    selectPad(selected.r,selected.c);   // riaggiorna il pannello (taglio/reverse/pitch) sul pad gia' selezionato, non solo la griglia
     applyMix(); applyTrackFX(); recomputeTrackColors(); renderAll(); refreshAllLeds(); updatePerfModeUI();
     loadingSet=false;
     doAutosave();
+    loadedGenreKeyByBank[activeBank]=genreKey||null; updateSaveModBtnVisibility();
     stat.textContent=label+' ✓ ('+ok+' loop)';
   }
-  loadGenre=async function(key){ const data=GENRES[key]; if(!data) return; await loadGenreData(data,key); };
-  loadCustomKit=async function(id){ const kit=customKits.find(k=>k.id===id); if(!kit) return; await loadGenreData(kit,kit.name); };
+  loadGenre=async function(key){ const data=GENRES[key]; if(!data) return; await loadGenreData(data,key,key); };
+  loadCustomKit=async function(id){ const kit=customKits.find(k=>k.id===id); if(!kit) return; await loadGenreData(kit,kit.name,null); };
   btn.onclick=()=>{
     if(sel.value.startsWith('kit:')) return loadCustomKit(sel.value.slice(4));
     else return loadGenre(sel.value);
