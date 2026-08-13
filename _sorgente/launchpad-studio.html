@@ -220,6 +220,12 @@
       <div class="row" style="font-size:12px">
         <label>Filtro</label><input type="range" id="clipFilter" min="0" max="1" step="0.01" value="1" style="flex:1;min-width:60px;accent-color:var(--accent)">
       </div>
+      <div class="row" style="font-size:12px">
+        <label>Tempo</label><input type="range" id="clipTempo" min="0.5" max="2" step="0.01" value="1" style="flex:1;min-width:60px;accent-color:var(--accent)"><span id="clipTempoVal" style="color:var(--dim)">100%</span>
+      </div>
+      <div class="row" style="font-size:12px">
+        <label>Tono</label><input type="range" id="clipTone" min="-12" max="12" step="1" value="0" style="flex:1;min-width:60px;accent-color:var(--accent)"><span id="clipToneVal" style="color:var(--dim)">0</span>
+      </div>
       </details>
 
       <div class="divider"></div>
@@ -1117,6 +1123,8 @@ function selectPad(r,c){ selected={r,c}; document.getElementById('selInfo').text
   const cfi=document.getElementById('clipFadeIn'); if(cfi){ cfi.value=(cl&&cl.fadeIn)||0; document.getElementById('clipFadeInVal').textContent=((cl&&cl.fadeIn)||0).toFixed(2)+'s'; }
   const cfo=document.getElementById('clipFadeOut'); if(cfo){ cfo.value=(cl&&cl.fadeOut)||0; document.getElementById('clipFadeOutVal').textContent=((cl&&cl.fadeOut)||0).toFixed(2)+'s'; }
   const cfl=document.getElementById('clipFilter'); if(cfl) cfl.value=(cl&&cl.filterCutoff!=null)?cl.filterCutoff:1;
+  const ctp=document.getElementById('clipTempo'); if(ctp){ const tv=(cl&&cl.tempoStretch)||1; ctp.value=tv; document.getElementById('clipTempoVal').textContent=Math.round(tv*100)+'%'; }
+  const cto=document.getElementById('clipTone'); if(cto){ const sv=(cl&&cl.toneShift)||0; cto.value=sv; document.getElementById('clipToneVal').textContent=sv; }
   const cch=document.getElementById('clipChoke'); if(cch) cch.value=(cl&&cl.choke)||0;
   const dur=(cl&&cl.buffer)?cl.buffer.duration:0;
   const cts=document.getElementById('clipTrimStart'); if(cts) cts.value=dur?((cl&&cl.trimStart||0)/dur):0;
@@ -1236,15 +1244,28 @@ async function applyTimeStretch(buffer, tempoFactor, semitones){
   for(let i=0;i<outLen;i++){ outL[i]=outInterleaved[i*2]; if(outR) outR[i]=outInterleaved[i*2+1]; }
   return out;
 }
-document.getElementById('clipRev').onchange=(e)=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl){ e.target.checked=false; return; }
+// Unico punto che ricalcola il buffer ATTIVO di un clip da quello originale: prima il time-stretch
+// (se tempoStretch!=1 o toneShift!=0), poi il reverse (se cl.reversed) — ordine fisso, vedi spec.
+// Sostituisce la logica ad-hoc che clipRev.onchange/pasteClipBtn avevano prima (che gestivano solo
+// origBuffer/revBuffer, ignari di un eventuale time-stretch in mezzo).
+async function rebuildProcessedBuffer(cl){
+  if(!cl.origBuffer) cl.origBuffer=cl.buffer;
+  let base=cl.origBuffer;
+  const tempo=cl.tempoStretch||1, semitones=cl.toneShift||0;
+  if(tempo!==1 || semitones!==0){
+    base=await applyTimeStretch(base, tempo, semitones);
+  }
+  cl.buffer = cl.reversed ? reversedBuffer(base) : base;
+}
+document.getElementById('clipRev').onchange=async (e)=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl){ e.target.checked=false; return; }
   pushUndo();
   if(!cl.origBuffer) cl.origBuffer=cl.buffer;
   // trimStart/trimEnd sono in secondi sul buffer ATTIVO: al ribaltamento vanno specchiati (dur-e, dur-s),
   // altrimenti dopo il reverse suona la porzione simmetrica sbagliata invece della stessa porzione al contrario.
   const dur=cl.origBuffer.duration, s=cl.trimStart||0, en=(cl.trimEnd!=null)?cl.trimEnd:dur;
   cl.trimStart=Math.max(0,dur-en); cl.trimEnd=Math.max(0,dur-s);
-  if(e.target.checked){ if(!cl.revBuffer) cl.revBuffer=reversedBuffer(cl.origBuffer); cl.buffer=cl.revBuffer; cl.reversed=true; }
-  else { cl.buffer=cl.origBuffer; cl.reversed=false; }
+  cl.reversed=e.target.checked;
+  await rebuildProcessedBuffer(cl);
   selectPad(r,c); };
 // ---- COPIA/INCOLLA impostazioni pad: solo mode/gain/pitch/choke/trim/reverse, mai l'audio ----
 let clipSettingsClipboard=null;
@@ -1252,15 +1273,17 @@ document.getElementById('copyClipBtn').onclick=()=>{ const{r,c}=selected; const 
   clipSettingsClipboard={mode:cl.mode||'loop',gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,
     trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,reversed:!!cl.reversed};
   document.getElementById('pasteClipBtn').disabled=false; };
-document.getElementById('pasteClipBtn').onclick=()=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl||!clipSettingsClipboard) return;
+document.getElementById('pasteClipBtn').onclick=async ()=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl||!clipSettingsClipboard) return;
   pushUndo();
   const s=clipSettingsClipboard;
   cl.mode=s.mode; cl.gain=s.gain; cl.pitch=s.pitch; cl.choke=s.choke;
+  cl.fadeIn=s.fadeIn||0; cl.fadeOut=s.fadeOut||0; cl.filterCutoff=s.filterCutoff!=null?s.filterCutoff:1;
+  cl.tempoStretch=s.tempoStretch||1; cl.toneShift=s.toneShift||0;
   const dur=cl.buffer?cl.buffer.duration:0;
   cl.trimStart=Math.min(s.trimStart,dur); cl.trimEnd=(s.trimEnd!=null)?Math.min(s.trimEnd,dur):null;
   if(!cl.origBuffer) cl.origBuffer=cl.buffer;
-  if(s.reversed){ if(!cl.revBuffer) cl.revBuffer=reversedBuffer(cl.origBuffer); cl.buffer=cl.revBuffer; cl.reversed=true; }
-  else { cl.buffer=cl.origBuffer; cl.reversed=false; }
+  cl.reversed=!!s.reversed;
+  await rebuildProcessedBuffer(cl);
   selectPad(r,c); updateLed(r,c); };
 function liveClipUpdate(r,c){ const ts=trackState[c], cl=activeGrid()[r][c]; if(!cl||!audioCtx) return;
   if(ts.playingRow===r && ts.src){ try{ ts.src.playbackRate.setTargetAtTime(rateFor(cl),audioCtx.currentTime,0.02); if(ts.g) ts.g.gain.setTargetAtTime(gainFor(cl),audioCtx.currentTime,0.02); }catch(e){} } }
@@ -1281,6 +1304,24 @@ document.getElementById('clipFadeOut').addEventListener('pointerdown',()=>pushUn
 document.getElementById('clipFilter').oninput=(e)=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl) return;
   cl.filterCutoff=+e.target.value; applyLiveFilter(r,c,cl); };
 document.getElementById('clipFilter').addEventListener('pointerdown',()=>pushUndo());
+document.getElementById('clipTempo').onchange=async (e)=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl) return;
+  const newTempo=+e.target.value;
+  if(cl.sourceBpmOriginale==null) cl.sourceBpmOriginale=cl.sourceBpm||null;
+  cl.tempoStretch=newTempo;
+  document.getElementById('clipTempoVal').textContent=Math.round(newTempo*100)+'%';
+  if(cl.sourceBpmOriginale!=null) cl.sourceBpm=Math.round(cl.sourceBpmOriginale/newTempo);
+  const csbEl=document.getElementById('clipSourceBpm'); if(csbEl) csbEl.value=cl.sourceBpm||'';
+  await rebuildProcessedBuffer(cl);
+  drawWaveform(cl);
+};
+document.getElementById('clipTempo').addEventListener('pointerdown',()=>pushUndo());
+document.getElementById('clipTone').onchange=async (e)=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl) return;
+  cl.toneShift=+e.target.value;
+  document.getElementById('clipToneVal').textContent=cl.toneShift;
+  await rebuildProcessedBuffer(cl);
+  drawWaveform(cl);
+};
+document.getElementById('clipTone').addEventListener('pointerdown',()=>pushUndo());
 document.getElementById('detectBpmBtn').onclick=()=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl||!cl.buffer) return;
   const est=detectBpm(cl.buffer); if(est==null) return;
   pushUndo();
