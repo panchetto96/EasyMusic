@@ -146,7 +146,7 @@
       <div class="row">
         <label>BPM</label><input type="number" id="bpm" value="120" min="40" max="240">
         <button class="act" id="tapBtn" style="padding:6px 10px">TAP</button>
-        <label style="font-size:12px"><input type="checkbox" id="syncBpm"> Sync BPM</label>
+        <label style="font-size:12px;display:none"><input type="checkbox" id="syncBpm"> Sync BPM</label>
         <label>Battute loop</label>
         <select id="bars" style="width:70px"><option value="1">1</option><option value="2">2</option><option value="4" selected>4</option><option value="8">8</option></select>
       </div>
@@ -624,6 +624,7 @@ function ac(){ if(!audioCtx){ audioCtx=new (window.AudioContext||window.webkitAu
  } return audioCtx; }
 
 let bpm=120, bars=4, quantMode='off', phraseBars=4, syncBpm=false;
+let tempoReferenceSet=false;   // vero se il BPM di progetto e' gia' "agganciato" a un suono dall'ultimo stopAll/resyncAll
 let playing=false, metroOn=false, startTime=0;
 let selected={r:0,c:0};
 const trackState=new Array(COLS).fill(null).map(()=>({playingRow:null,queuedRow:null,src:null}));
@@ -1194,9 +1195,21 @@ document.getElementById('tapBtn').onclick=()=>{ const t=performance.now(); tapTi
 const secPerBeat=()=>60/bpm;
 function now(){ return ac().currentTime; }
 // time-stretch semplice via resampling (cambia leggermente l'intonazione, ma sincronizza)
-function clipRate(clip){ return (syncBpm && clip && clip.sourceBpm)? bpm/clip.sourceBpm : 1; }
+function clipRate(clip){ return (clip && clip.sourceBpm)? bpm/clip.sourceBpm : 1; }
 // per-clip: pitch (semitoni) -> playbackRate, gain, choke group
 function rateFor(clip){ return clipRate(clip)*Math.pow(2, ((clip&&clip.pitch)||0)/12); }
+// Il primo Loop che parte (dopo uno Stop tutto o un Re-sync) stabilisce da solo il BPM di progetto;
+// da li' in poi ogni clip con un sourceBpm noto si adatta automaticamente (vedi clipRate). Un solo
+// punto di chiamata: l'inizio di scheduleClip, attraversato sia dalla pressione diretta di un pad
+// Loop sia dal lancio scena — nessun altro hook necessario.
+function tryEstablishTempoReference(clip){
+  if(tempoReferenceSet || !clip || !clip.sourceBpm) return;
+  bpm=clip.sourceBpm;
+  document.getElementById('bpm').value=bpm;
+  document.getElementById('bpmVal').textContent=bpm;
+  tempoReferenceSet=true;
+  applyRates();
+}
 function gainFor(clip){ return (clip&&clip.gain!=null)?clip.gain:1; }
 const chokeVoices={};
 // ctx={col,row,kind:'loop'|'gate'|'oneshot'}: serve a ripulire lo stato/LED della voce rubata dal choke,
@@ -1233,7 +1246,7 @@ function togglePlay(){
     setTopLed(6,37,'static'); }   // il tasto Keys/Play-Stop si accende subito, senza un giro completo di refreshAllLeds()
 }
 function stopAll(){
-  playing=false; playBtn.textContent='▶ Play'; playBtn.classList.add('primary');
+  playing=false; tempoReferenceSet=false; playBtn.textContent='▶ Play'; playBtn.classList.add('primary');
   for(let c=0;c<COLS;c++) stopTrackClip(c,true);
   for(const k in gateSrc){ const o=gateSrc[k]; try{ o.src.stop(); }catch(e){} delete gateSrc[k]; }  // ferma anche le voci in gate
   oneShots.forEach(s=>{ try{ s.stop(); }catch(e){} }); oneShots=[];                                 // e i one-shot
@@ -1260,6 +1273,7 @@ function stopAllSmooth(fadeSec){
 // RE-SYNC: fa ripartire tutti i loop in play insieme, dall'inizio (riallinea la griglia)
 function resyncAll(){
   if(!playing) return;
+  tempoReferenceSet=false;
   const when=now()+0.03; startTime=when; nextClick=when; nextStepTime=when; stepCounter=0; lastBeat=-1;
   for(let c=0;c<COLS;c++){ const ts=trackState[c]; if(ts.playingRow!=null){
     const r=ts.playingRow;
@@ -1472,6 +1486,7 @@ function launchScene(r){
 }
 function scheduleClip(r,c,when){
   const ts=trackState[c], clip=clips[r][c]; const F=0.006;
+  tryEstablishTempoReference(clip);
   if(ts.src){ try{ if(ts.g){ ts.g.gain.setValueAtTime(ts.g.gain.value,when); ts.g.gain.linearRampToValueAtTime(0,when+F);} ts.src.stop(when+F+0.006);}catch(e){} }
   const {start:tS,end:tE}=trimBounds(clip);
   const src=ac().createBufferSource(); src.buffer=clip.buffer; src.loop=true; src.loopStart=tS; src.loopEnd=tE; src.playbackRate.value=rateFor(clip);
