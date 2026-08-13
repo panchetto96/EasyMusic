@@ -1,4 +1,5 @@
 let newKitBtn=null, draftKitName=null, saveKitBtn=null, delKitBtn=null, customKitOptionEls=[], sel=null, btn=null;
+let exportKitBtn=null, importKitBtn=null, kitFileInput=null, stat=null;
 let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;   // assegnate dentro l'IIFE (chiudono su sel/customKits)
 (function(){
   const box=document.querySelector('.grid-box');
@@ -10,7 +11,7 @@ let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;
   Object.keys(GENRES).forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;sel.appendChild(o);});
   btn=document.createElement('button'); btn.textContent='▶ Carica genere';
   btn.style.cssText='background:#4ea1ff;border:1px solid #4ea1ff;color:#04101f;font-weight:600;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:13px';
-  const stat=document.createElement('span'); stat.style.cssText='font-size:12px;color:#8b93a4';
+  stat=document.createElement('span'); stat.style.cssText='font-size:12px;color:#8b93a4';
   bar.appendChild(lab); bar.appendChild(sel); bar.appendChild(btn); bar.appendChild(stat);
   newKitBtn=document.createElement('button'); newKitBtn.textContent='+ Nuovo kit';
   newKitBtn.style.cssText='background:#20242e;border:1px solid #2c313d;color:#e8ebf1;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:13px';
@@ -72,6 +73,43 @@ let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;
     sel.value=Object.keys(GENRES)[0]||'';
     updateDelKitVisibility();
     stat.textContent='Kit eliminato';
+  };
+
+  exportKitBtn=document.createElement('button'); exportKitBtn.textContent='📂 Esporta kit';
+  exportKitBtn.style.cssText=newKitBtn.style.cssText;
+  bar.appendChild(exportKitBtn);
+  exportKitBtn.onclick=()=>{
+    if(!sel.value.startsWith('kit:')){ stat.textContent='Seleziona prima un kit personalizzato da esportare.'; return; }
+    const kit=customKits.find(k=>k.id===sel.value.slice(4)); if(!kit) return;
+    const out={version:1,id:kit.id,name:kit.name,bpm:kit.bpm,bars:kit.bars,phraseBars:kit.phraseBars,
+      master:kit.master,filter:kit.filter,revWet:kit.revWet,revSize:kit.revSize,dlyWet:kit.dlyWet,dlyFb:kit.dlyFb,dlyTime:kit.dlyTime,
+      tracks:kit.tracks,
+      clips:kit.clips.map(cl=>({r:cl.r,c:cl.c,name:cl.name,mime:cl.mime,mode:cl.mode,trimStart:cl.trimStart,trimEnd:cl.trimEnd,sourceBpm:cl.sourceBpm,data:abToB64(cl.raw)}))};
+    const blob=new Blob([JSON.stringify(out)],{type:'application/json'});
+    const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download=kit.name.replace(/[^a-z0-9 _-]/gi,'')+'.lpkit'; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+  };
+
+  importKitBtn=document.createElement('button'); importKitBtn.textContent='📥 Importa kit';
+  importKitBtn.style.cssText=newKitBtn.style.cssText;
+  kitFileInput=document.createElement('input'); kitFileInput.type='file'; kitFileInput.accept='.lpkit,application/json'; kitFileInput.style.display='none';
+  bar.appendChild(importKitBtn); bar.appendChild(kitFileInput);
+  importKitBtn.onclick=()=>kitFileInput.click();
+  kitFileInput.onchange=async (e)=>{
+    const f=e.target.files[0]; if(!f) return; e.target.value='';
+    try{
+      const data=JSON.parse(await f.text());
+      const id=newKitId();
+      const kit={id,name:data.name||'Kit importato',bpm:data.bpm,bars:data.bars,phraseBars:data.phraseBars,
+        master:data.master,filter:data.filter,revWet:data.revWet,revSize:data.revSize,dlyWet:data.dlyWet,dlyFb:data.dlyFb,dlyTime:data.dlyTime,
+        tracks:data.tracks||[],
+        clips:(data.clips||[]).map(cl=>({r:cl.r,c:cl.c,name:cl.name,mime:cl.mime,mode:cl.mode,trimStart:cl.trimStart,trimEnd:cl.trimEnd,sourceBpm:cl.sourceBpm,raw:b64ToAb(cl.data)}))};
+      await kitPut(kit);
+      customKits.push(kit);
+      refreshGenreSelectOptions();
+      stat.textContent='Kit «'+kit.name+'» importato ✓';
+    }catch(err){ alert('File .lpkit non valido.'); }
   };
   refreshGenreSelectOptions();
   box.insertBefore(bar, box.firstChild);
