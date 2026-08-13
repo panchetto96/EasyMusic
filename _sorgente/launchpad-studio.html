@@ -966,6 +966,13 @@ function updatePerfModeUI(){
   const pmSel=document.getElementById('padMode'), pmCol=document.getElementById('padModeCol');
   if(pmSel) pmSel.disabled=(perfMode==='drums');
   if(pmCol) pmCol.disabled=(perfMode==='drums');
+  // Tempo/Tono (time-stretch offline) sono scoped ai soli banchi normali (vedi spec Sezione 4): il kit
+  // Drums non li persiste (niente tempoStretch/toneShift nei suoi campi serializzati) quindi vanno
+  // disattivati qui, stesso pattern di pmSel/pmCol sopra, per non lasciarli raggiungibili e silenziosamente
+  // persi al primo salvataggio (bug trovato in review whole-branch).
+  const ctp=document.getElementById('clipTempo'), cto=document.getElementById('clipTone');
+  if(ctp) ctp.disabled=(perfMode==='drums');
+  if(cto) cto.disabled=(perfMode==='drums');
 }
 (function(){
   const bb=document.getElementById('bankBar');
@@ -1109,7 +1116,7 @@ document.getElementById('clipTrimEnd').addEventListener('pointerdown',()=>pushUn
 document.getElementById('saveModBtn').onclick=async ()=>{
   const genre=loadedGenreKeyByBank[activeBank]; if(!genre) return;
   const {r,c}=selected; const cl=clips[r][c]; if(!cl) return;
-  await saveGenreOverride(genre,r,c,{trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,reversed:!!cl.reversed,pitch:cl.pitch||0,sourceBpm:cl.sourceBpm||null,fadeIn:cl.fadeIn||0,fadeOut:cl.fadeOut||0,filterCutoff:cl.filterCutoff!=null?cl.filterCutoff:1,tempoStretch:cl.tempoStretch||1,toneShift:cl.toneShift||0});
+  await saveGenreOverride(genre,r,c,{trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,reversed:!!cl.reversed,pitch:cl.pitch||0,sourceBpm:cl.sourceBpm||null,sourceBpmOriginale:cl.sourceBpmOriginale||null,fadeIn:cl.fadeIn||0,fadeOut:cl.fadeOut||0,filterCutoff:cl.filterCutoff!=null?cl.filterCutoff:1,tempoStretch:cl.tempoStretch||1,toneShift:cl.toneShift||0});
   const btn=document.getElementById('saveModBtn'); const orig=btn.textContent;
   btn.textContent='✓ Salvato'; setTimeout(()=>{ btn.textContent=orig; },1200);
 };
@@ -1303,7 +1310,21 @@ document.getElementById('pasteClipBtn').onclick=async ()=>{ const{r,c}=selected;
   cl.trimStart=Math.min(s.trimStart,dur); cl.trimEnd=(s.trimEnd!=null)?Math.min(s.trimEnd,dur):null;
   if(!cl.origBuffer) cl.origBuffer=cl.buffer;
   cl.reversed=!!s.reversed;
-  await rebuildProcessedBuffer(cl);
+  // rebuildProcessedBufferRescalingTrim (non la semplice rebuildProcessedBuffer) perche' il trim appena
+  // clampato sopra e' valido sulla durata PRE-rebuild del pad di destinazione: se il tempoStretch/toneShift
+  // incollato cambia quella durata, il trim va riscalato di conseguenza — stessa famiglia di bug gia'
+  // corretta dal Task 4 per il percorso Tempo/Tono dal vivo (bug trovato in review whole-branch: il trim
+  // restava clampato contro la durata sbagliata e poteva finire fuori scala sul nuovo buffer).
+  await rebuildProcessedBufferRescalingTrim(cl);
+  // Incollare un Tempo (tempoStretch) diverso da 1 cambia la velocita' nativa del buffer ATTIVO del pad
+  // di DESTINAZIONE esattamente come farebbe l'utente muovendo #clipTempo a mano: sourceBpm/sourceBpmOriginale
+  // vanno riconciliati con la stessa formula usata dall'handler di #clipTempo, altrimenti sourceBpm resta
+  // ancorato alla vecchia velocita' mentre il buffer suona gia' a quella nuova (bug trovato in review
+  // whole-branch). Il Tono non tocca mai sourceBpm, qui come altrove.
+  if(cl.tempoStretch!==1){
+    if(cl.sourceBpmOriginale==null) cl.sourceBpmOriginale=cl.sourceBpm||null;
+    if(cl.sourceBpmOriginale!=null) cl.sourceBpm=Math.round(cl.sourceBpmOriginale*cl.tempoStretch);
+  }
   selectPad(r,c); updateLed(r,c); };
 function liveClipUpdate(r,c){ const ts=trackState[c], cl=activeGrid()[r][c]; if(!cl||!audioCtx) return;
   if(ts.playingRow===r && ts.src){ try{ ts.src.playbackRate.setTargetAtTime(rateFor(cl),audioCtx.currentTime,0.02); if(ts.g) ts.g.gain.setTargetAtTime(gainFor(cl),audioCtx.currentTime,0.02); }catch(e){} } }
@@ -1681,7 +1702,12 @@ function launchScene(r){
 function scheduleClip(r,c,when){
   const ts=trackState[c], clip=clips[r][c]; const F=0.006;
   tryEstablishTempoReference(clip);
-  if(ts.src){ try{ if(ts.g){ ts.g.gain.setValueAtTime(ts.g.gain.value,when); ts.g.gain.linearRampToValueAtTime(0,when+F);} ts.src.stop(when+F+0.006);}catch(e){} }
+  // La voce USCENTE (quella gia' in corso su questa colonna, se c'e') va fermata col SUO fadeOut, non
+  // con la costante fissa F=6ms — stesso trattamento che stopTrackClipAt gia' applica altrove, altrimenti
+  // un pad con un fadeOut lungo suona troncato bruscamente quando un altro pad parte sulla stessa colonna
+  // (bug trovato in review whole-branch).
+  if(ts.src){ const outClip=(ts.playingRow!=null)?clips[ts.playingRow][c]:null; const fo=Math.max(F,(outClip&&outClip.fadeOut)||0);
+    try{ if(ts.g){ ts.g.gain.setValueAtTime(ts.g.gain.value,when); ts.g.gain.linearRampToValueAtTime(0,when+fo);} ts.src.stop(when+fo+0.006);}catch(e){} }
   const {start:tS,end:tE}=trimBounds(clip);
   const src=ac().createBufferSource(); src.buffer=clip.buffer; src.loop=true; src.loopStart=tS; src.loopEnd=tE; src.playbackRate.value=rateFor(clip);
   const filterNode=ac().createBiquadFilter(); filterNode.type='lowpass'; filterNode.frequency.value=filterFreqFor(clip); filterNode.Q.value=0.9;
@@ -1771,11 +1797,11 @@ document.getElementById('saveBtn').onclick=()=>{
     tracks:tracks.map(t=>({volume:t.volume,muted:t.muted,solo:t.solo,low:t.low||0,high:t.high||0,revSend:t.revSend||0,dlySend:t.dlySend||0})), snapshots:snapshots, banks:[]};
   for(let b=0;b<NBANKS;b++){ const bankClips=[]; const grid=banks[b];
     for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const cl=grid[r][c];
-      if(cl&&cl.raw) bankClips.push({r,c,name:cl.name,mime:cl.mime,mode:cl.mode||'loop',reversed:cl.reversed||false,gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,steps:cl.steps||null,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,sourceBpm:cl.sourceBpm||null,fadeIn:cl.fadeIn||0,fadeOut:cl.fadeOut||0,filterCutoff:cl.filterCutoff!=null?cl.filterCutoff:1,tempoStretch:cl.tempoStretch||1,toneShift:cl.toneShift||0,data:abToB64(cl.raw)}); }
+      if(cl&&cl.raw) bankClips.push({r,c,name:cl.name,mime:cl.mime,mode:cl.mode||'loop',reversed:cl.reversed||false,gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,steps:cl.steps||null,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,sourceBpm:cl.sourceBpm||null,sourceBpmOriginale:cl.sourceBpmOriginale||null,fadeIn:cl.fadeIn||0,fadeOut:cl.fadeOut||0,filterCutoff:cl.filterCutoff!=null?cl.filterCutoff:1,tempoStretch:cl.tempoStretch||1,toneShift:cl.toneShift||0,data:abToB64(cl.raw)}); }
     out.banks.push(bankClips); }
   const kitClips=[];
   for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const cl=drumKit[r][c];
-    if(cl&&cl.raw) kitClips.push({r,c,name:cl.name,mime:cl.mime,reversed:cl.reversed||false,gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,data:abToB64(cl.raw)}); }
+    if(cl&&cl.raw) kitClips.push({r,c,name:cl.name,mime:cl.mime,reversed:cl.reversed||false,gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,fadeIn:cl.fadeIn||0,fadeOut:cl.fadeOut||0,filterCutoff:cl.filterCutoff!=null?cl.filterCutoff:1,data:abToB64(cl.raw)}); }
   out.drumKit=kitClips;
   const blob=new Blob([JSON.stringify(out)],{type:'application/json'});
   const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
@@ -1814,7 +1840,7 @@ document.getElementById('setInput').onchange=async(e)=>{
     async function loadClipInto(grid,cl,srcBpm){
       const ab=b64ToAb(cl.data); const raw=ab.slice(0);
       try{ const audio=await ac().decodeAudioData(ab);
-        const nc={buffer:audio,name:cl.name,raw,mime:cl.mime,mode:cl.mode||'loop',sourceBpm:cl.sourceBpm!=null?cl.sourceBpm:srcBpm,gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,steps:Array.isArray(cl.steps)?cl.steps:null,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,fadeIn:cl.fadeIn||0,fadeOut:cl.fadeOut||0,filterCutoff:cl.filterCutoff!=null?cl.filterCutoff:1,tempoStretch:cl.tempoStretch||1,toneShift:cl.toneShift||0};
+        const nc={buffer:audio,name:cl.name,raw,mime:cl.mime,mode:cl.mode||'loop',sourceBpm:cl.sourceBpm!=null?cl.sourceBpm:srcBpm,sourceBpmOriginale:cl.sourceBpmOriginale||null,gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,steps:Array.isArray(cl.steps)?cl.steps:null,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,fadeIn:cl.fadeIn||0,fadeOut:cl.fadeOut||0,filterCutoff:cl.filterCutoff!=null?cl.filterCutoff:1,tempoStretch:cl.tempoStretch||1,toneShift:cl.toneShift||0};
         nc.origBuffer=audio; nc.reversed=!!cl.reversed;
         if((nc.tempoStretch&&nc.tempoStretch!==1) || nc.toneShift){ await rebuildProcessedBuffer(nc); }
         else if(cl.reversed){ nc.buffer=reversedBuffer(audio); }
@@ -1907,7 +1933,7 @@ async function ovrPut(key,val){ const db=await ovrDbOpen(); return new Promise((
 async function ovrGetAll(){ const db=await ovrDbOpen(); return new Promise((res,rej)=>{
   const tx=db.transaction(OVR_STORE,'readonly'); const rq=tx.objectStore(OVR_STORE).getAll();
   rq.onsuccess=()=>res(rq.result||[]); rq.onerror=()=>rej(rq.error); }); }
-let genreOverrides={};   // "genere|r|c" -> {key,trimStart,trimEnd,reversed,pitch,sourceBpm}, dalla IndexedDB
+let genreOverrides={};   // "genere|r|c" -> {key,trimStart,trimEnd,reversed,pitch,sourceBpm,fadeIn,fadeOut,filterCutoff,tempoStretch,toneShift,sourceBpmOriginale}, dalla IndexedDB
 async function loadGenreOverridesFromDb(){
   try{ const all=await ovrGetAll(); genreOverrides={}; all.forEach(v=>{ genreOverrides[v.key]=v; }); }catch(e){ genreOverrides={}; }
 }
@@ -1936,7 +1962,7 @@ function buildAutosaveSnapshot(){
     for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++){ const cl=grid[r][c];
       if(cl&&cl.raw) bankClips.push({r,c,name:cl.name,mime:cl.mime,mode:cl.mode||'loop',reversed:cl.reversed||false,
         gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,steps:cl.steps||null,
-        trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,sourceBpm:cl.sourceBpm||null,
+        trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,sourceBpm:cl.sourceBpm||null,sourceBpmOriginale:cl.sourceBpmOriginale||null,
         fadeIn:cl.fadeIn||0,fadeOut:cl.fadeOut||0,filterCutoff:cl.filterCutoff!=null?cl.filterCutoff:1,tempoStretch:cl.tempoStretch||1,toneShift:cl.toneShift||0,
         raw:cl.raw}); }
     out.banks.push(bankClips); }
@@ -1945,6 +1971,7 @@ function buildAutosaveSnapshot(){
     if(cl&&cl.raw) kitClips.push({r,c,name:cl.name,mime:cl.mime,reversed:cl.reversed||false,
       gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,
       trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,
+      fadeIn:cl.fadeIn||0,fadeOut:cl.fadeOut||0,filterCutoff:cl.filterCutoff!=null?cl.filterCutoff:1,
       raw:cl.raw}); }
   out.drumKit=kitClips;
   return out;
@@ -1997,7 +2024,7 @@ async function restoreAutosave(snap){
   for(let b=0;b<NBANKS;b++){
     for(const cl of (snap.banks&&snap.banks[b])||[]){
       try{ const raw=cl.raw; const audio=await ac().decodeAudioData(raw.slice(0));
-        const nc={buffer:audio,name:cl.name,raw,mime:cl.mime,mode:cl.mode||'loop',gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,steps:Array.isArray(cl.steps)?cl.steps:null,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,sourceBpm:cl.sourceBpm!=null?cl.sourceBpm:(snap.bpm||null),fadeIn:cl.fadeIn||0,fadeOut:cl.fadeOut||0,filterCutoff:cl.filterCutoff!=null?cl.filterCutoff:1,tempoStretch:cl.tempoStretch||1,toneShift:cl.toneShift||0};
+        const nc={buffer:audio,name:cl.name,raw,mime:cl.mime,mode:cl.mode||'loop',gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,steps:Array.isArray(cl.steps)?cl.steps:null,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,sourceBpm:cl.sourceBpm!=null?cl.sourceBpm:(snap.bpm||null),sourceBpmOriginale:cl.sourceBpmOriginale||null,fadeIn:cl.fadeIn||0,fadeOut:cl.fadeOut||0,filterCutoff:cl.filterCutoff!=null?cl.filterCutoff:1,tempoStretch:cl.tempoStretch||1,toneShift:cl.toneShift||0};
         nc.origBuffer=audio; nc.reversed=!!cl.reversed;
         if((nc.tempoStretch&&nc.tempoStretch!==1) || nc.toneShift){ await rebuildProcessedBuffer(nc); }
         else if(cl.reversed){ nc.buffer=reversedBuffer(audio); }
@@ -2008,7 +2035,7 @@ async function restoreAutosave(snap){
   for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) drumKit[r][c]=null;
   for(const cl of (snap.drumKit||[])){
     try{ const raw=cl.raw; const audio=await ac().decodeAudioData(raw.slice(0));
-      const nc={buffer:audio,name:cl.name,raw,mime:cl.mime,gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null};
+      const nc={buffer:audio,name:cl.name,raw,mime:cl.mime,gain:cl.gain!=null?cl.gain:1,pitch:cl.pitch||0,choke:cl.choke||0,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,fadeIn:cl.fadeIn||0,fadeOut:cl.fadeOut||0,filterCutoff:cl.filterCutoff!=null?cl.filterCutoff:1};
       if(cl.reversed){ nc.origBuffer=audio; nc.revBuffer=reversedBuffer(audio); nc.buffer=nc.revBuffer; nc.reversed=true; }
       drumKit[cl.r][cl.c]=nc;
     }catch(e){}

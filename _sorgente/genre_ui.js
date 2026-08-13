@@ -185,6 +185,7 @@ let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;
         if(ovr){
           nc.trimStart=ovr.trimStart||0; nc.trimEnd=ovr.trimEnd!=null?ovr.trimEnd:null; nc.pitch=ovr.pitch||0;
           if(ovr.sourceBpm!=null) nc.sourceBpm=ovr.sourceBpm;
+          if(ovr.sourceBpmOriginale!=null) nc.sourceBpmOriginale=ovr.sourceBpmOriginale;
           nc.fadeIn=ovr.fadeIn||0; nc.fadeOut=ovr.fadeOut||0; nc.filterCutoff=ovr.filterCutoff!=null?ovr.filterCutoff:1;
           nc.tempoStretch=ovr.tempoStretch||1; nc.toneShift=ovr.toneShift||0;
           nc.origBuffer=audio; nc.reversed=!!ovr.reversed;
