@@ -1,5 +1,5 @@
-let newKitBtn=null, draftKitName=null, saveKitBtn=null, delKitBtn=null, customKitOptionEls=[], sel=null;
-let refreshGenreSelectOptions, updateDelKitVisibility;   // assegnate dentro l'IIFE (chiudono su sel/customKits)
+let newKitBtn=null, draftKitName=null, saveKitBtn=null, delKitBtn=null, customKitOptionEls=[], sel=null, btn=null;
+let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;   // assegnate dentro l'IIFE (chiudono su sel/customKits)
 (function(){
   const box=document.querySelector('.grid-box');
   const bar=document.createElement('div');
@@ -8,7 +8,7 @@ let refreshGenreSelectOptions, updateDelKitVisibility;   // assegnate dentro l'I
   sel=document.createElement('select');
   sel.style.cssText='background:#20242e;color:#e8ebf1;border:1px solid #2c313d;border-radius:8px;padding:8px 10px;font-size:13px;min-width:230px';
   Object.keys(GENRES).forEach(k=>{const o=document.createElement('option');o.value=k;o.textContent=k;sel.appendChild(o);});
-  const btn=document.createElement('button'); btn.textContent='▶ Carica genere';
+  btn=document.createElement('button'); btn.textContent='▶ Carica genere';
   btn.style.cssText='background:#4ea1ff;border:1px solid #4ea1ff;color:#04101f;font-weight:600;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:13px';
   const stat=document.createElement('span'); stat.style.cssText='font-size:12px;color:#8b93a4';
   bar.appendChild(lab); bar.appendChild(sel); bar.appendChild(btn); bar.appendChild(stat);
@@ -75,9 +75,8 @@ let refreshGenreSelectOptions, updateDelKitVisibility;   // assegnate dentro l'I
   };
   refreshGenreSelectOptions();
   box.insertBefore(bar, box.firstChild);
-  async function loadGenre(key){
-    const data=GENRES[key]; if(!data) return;
-    stat.textContent='Carico '+key+'…'; await new Promise(r=>setTimeout(r,20));
+  async function loadGenreData(data,label){
+    stat.textContent='Carico '+label+'…'; await new Promise(r=>setTimeout(r,20));
     pushUndo();
     loadingSet=true;
     await stopAllSmooth(1.2);
@@ -103,11 +102,22 @@ let refreshGenreSelectOptions, updateDelKitVisibility;   // assegnate dentro l'I
       tracks[c]._vol.value=v; tracks[c]._m.classList.toggle('on',t.muted); tracks[c]._s.classList.toggle('on',t.solo);} });
     for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) clips[r][c]=null;
     let ok=0;
-    for(const cl of data.clips){ try{ const ab=b64ToAb(cl.data); const raw=ab.slice(0); const audio=await ac().decodeAudioData(ab); clips[cl.r][cl.c]={buffer:audio,name:cl.name,raw,mime:cl.mime,mode:cl.mode||'loop',sourceBpm:data.bpm,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null}; ok++; }catch(e){} }
+    for(const cl of data.clips){ try{
+      const src = cl.data!=null ? b64ToAb(cl.data) : cl.raw.slice(0);
+      const raw = src.slice(0);
+      const audio=await ac().decodeAudioData(src);
+      clips[cl.r][cl.c]={buffer:audio,name:cl.name,raw,mime:cl.mime,mode:cl.mode||'loop',sourceBpm:cl.sourceBpm||data.bpm,trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null};
+      ok++;
+    }catch(e){} }
     applyMix(); applyTrackFX(); recomputeTrackColors(); renderAll(); refreshAllLeds(); updatePerfModeUI();
     loadingSet=false;
     doAutosave();
-    stat.textContent=key+' ✓ ('+ok+' loop)';
+    stat.textContent=label+' ✓ ('+ok+' loop)';
   }
-  btn.onclick=()=>loadGenre(sel.value);
+  loadGenre=async function(key){ const data=GENRES[key]; if(!data) return; await loadGenreData(data,key); };
+  loadCustomKit=async function(id){ const kit=customKits.find(k=>k.id===id); if(!kit) return; await loadGenreData(kit,kit.name); };
+  btn.onclick=()=>{
+    if(sel.value.startsWith('kit:')) return loadCustomKit(sel.value.slice(4));
+    else return loadGenre(sel.value);
+  };
 })();
