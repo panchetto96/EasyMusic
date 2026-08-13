@@ -180,12 +180,27 @@
           <label>fine</label><input type="range" id="clipTrimEnd" min="0" max="1" step="0.001" value="1" style="flex:1;min-width:60px;accent-color:var(--accent)">
         </div>
       </div>
-      <div class="row"><button class="act" id="saveModBtn" style="display:none" title="Salva taglio/reverse/pitch/BPM di questo pad solo per il genere attualmente caricato">💾 Salva modifica</button></div>
+      <div class="row"><button class="act" id="saveModBtn" style="display:none" title="Salva taglio/reverse/pitch/BPM/fade/filtro/tempo/tono di questo pad solo per il genere attualmente caricato">💾 Salva modifica</button></div>
       <div class="row"><label style="font-size:12px"><input type="checkbox" id="clipRev"> Reverse (suona al contrario) — pad selezionato</label></div>
       <div class="row" style="font-size:12px;flex-wrap:wrap">
         <label style="display:none">Gain</label><input type="range" id="clipGain" min="0" max="1.5" step="0.01" value="1" style="width:84px;accent-color:var(--accent);display:none">
         <label>Pitch</label><input type="range" id="clipPitch" min="-12" max="12" step="1" value="0" style="width:84px;accent-color:var(--accent)"><span id="clipPitchVal" style="color:var(--dim)">0</span>
         <label style="display:none">Choke</label><select id="clipChoke" style="width:56px;display:none"><option value="0">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
+      </div>
+      <div class="row" style="font-size:12px">
+        <label>Fade in</label><input type="range" id="clipFadeIn" min="0" max="2" step="0.01" value="0" style="flex:1;min-width:60px;accent-color:var(--accent)"><span id="clipFadeInVal" style="color:var(--dim)">0.00s</span>
+      </div>
+      <div class="row" style="font-size:12px">
+        <label>Fade out</label><input type="range" id="clipFadeOut" min="0" max="2" step="0.01" value="0" style="flex:1;min-width:60px;accent-color:var(--accent)"><span id="clipFadeOutVal" style="color:var(--dim)">0.00s</span>
+      </div>
+      <div class="row" style="font-size:12px">
+        <label>Filtro</label><input type="range" id="clipFilter" min="0" max="1" step="0.01" value="1" style="flex:1;min-width:60px;accent-color:var(--accent)">
+      </div>
+      <div class="row" style="font-size:12px">
+        <label>Tempo</label><input type="range" id="clipTempo" min="0.5" max="2" step="0.01" value="1" style="flex:1;min-width:60px;accent-color:var(--accent)"><span id="clipTempoVal" style="color:var(--dim)">100%</span>
+      </div>
+      <div class="row" style="font-size:12px">
+        <label>Tono</label><input type="range" id="clipTone" min="-12" max="12" step="1" value="0" style="flex:1;min-width:60px;accent-color:var(--accent)"><span id="clipToneVal" style="color:var(--dim)">0</span>
       </div>
       <div class="row" style="font-size:12px">
         <label>BPM di origine</label><input type="number" id="clipSourceBpm" min="40" max="240" style="width:64px">
@@ -207,25 +222,6 @@
       <div class="row" style="font-size:12px"><span id="autosaveStatus" class="hint">Autosave: —</span>
         <button class="act" id="clearAutosaveBtn" style="padding:4px 8px;font-size:11px" title="Cancella la sessione autosalvata">🗑️ Cancella autosave</button></div>
       <div class="hint">Pad selezionato: <b id="selInfo">nessuno</b></div>
-      </details>
-
-      <details class="sec-details" open>
-      <summary>Modifiche suono</summary>
-      <div class="row" style="font-size:12px">
-        <label>Fade in</label><input type="range" id="clipFadeIn" min="0" max="2" step="0.01" value="0" style="flex:1;min-width:60px;accent-color:var(--accent)"><span id="clipFadeInVal" style="color:var(--dim)">0.00s</span>
-      </div>
-      <div class="row" style="font-size:12px">
-        <label>Fade out</label><input type="range" id="clipFadeOut" min="0" max="2" step="0.01" value="0" style="flex:1;min-width:60px;accent-color:var(--accent)"><span id="clipFadeOutVal" style="color:var(--dim)">0.00s</span>
-      </div>
-      <div class="row" style="font-size:12px">
-        <label>Filtro</label><input type="range" id="clipFilter" min="0" max="1" step="0.01" value="1" style="flex:1;min-width:60px;accent-color:var(--accent)">
-      </div>
-      <div class="row" style="font-size:12px">
-        <label>Tempo</label><input type="range" id="clipTempo" min="0.5" max="2" step="0.01" value="1" style="flex:1;min-width:60px;accent-color:var(--accent)"><span id="clipTempoVal" style="color:var(--dim)">100%</span>
-      </div>
-      <div class="row" style="font-size:12px">
-        <label>Tono</label><input type="range" id="clipTone" min="-12" max="12" step="1" value="0" style="flex:1;min-width:60px;accent-color:var(--accent)"><span id="clipToneVal" style="color:var(--dim)">0</span>
-      </div>
       </details>
 
       <div class="divider"></div>
