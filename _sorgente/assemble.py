@@ -29,10 +29,11 @@ UI      = HERE / "genre_ui.js"
 DKDATA  = HERE / "drumkit_preset.json"
 DKUI    = HERE / "drumkit_preset_ui.js"
 CATUI   = HERE / "catalog_ui.js"
+SOUNDTOUCH = HERE / "soundtouch-vendor.js"
 OUT   = pathlib.Path(sys.argv[1]) if len(sys.argv) > 1 else HERE.parent / "Launchpad Studio.html"
 
 def main():
-    for p in (SRC, DATA, UI, DKDATA, DKUI, CATUI):
+    for p in (SRC, DATA, UI, DKDATA, DKUI, CATUI, SOUNDTOUCH):
         if not p.exists():
             sys.exit(f"ERRORE: manca {p.name} in {HERE}")
 
@@ -40,6 +41,7 @@ def main():
     ui    = UI.read_text(encoding="utf-8")
     dkui  = DKUI.read_text(encoding="utf-8")
     catui = CATUI.read_text(encoding="utf-8")
+    soundtouch = SOUNDTOUCH.read_text(encoding="utf-8")
     # valida che genres.json / drumkit_preset.json siano JSON corretti e conta le clip
     genres = json.loads(DATA.read_text(encoding="utf-8"))
     nclip  = sum(len(g.get("clips", [])) for g in genres.values())
@@ -48,7 +50,7 @@ def main():
     ndrum   = len(drumkit)
     drumkit_text = DKDATA.read_text(encoding="utf-8").strip()
 
-    block = ("\n<script>\nconst GENRES = " + data_text + ";\n" + ui.rstrip()
+    block = ("\n<script>\nconst GENRES = " + data_text + ";\n" + soundtouch.rstrip() + "\n" + ui.rstrip()
              + "\nconst DRUM_KIT_PRESET = " + drumkit_text + ";\n" + dkui.rstrip()
              + "\n" + catui.rstrip()
              + "\n</script>\n\n")

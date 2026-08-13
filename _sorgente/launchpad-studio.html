@@ -1157,6 +1157,40 @@ document.getElementById('padModeCol').onclick=()=>{ const{c}=selected; const m=d
   for(let r=0;r<ROWS;r++){ if(g[r][c]){ if(perfMode===null) stopPadSound(r,c); g[r][c].mode=m; renderPad(r,c); updateLed(r,c);} } };
 function reversedBuffer(buf){ const n=buf.numberOfChannels,len=buf.length,nb=ac().createBuffer(n,len,buf.sampleRate);
   for(let ch=0;ch<n;ch++){ const s=buf.getChannelData(ch),d=nb.getChannelData(ch); for(let i=0;i<len;i++) d[i]=s[len-1-i]; } return nb; }
+// Time-stretch offline via SoundTouch.js (vendorizzata in soundtouch-vendor.js, iniettata da
+// assemble.py). tempoFactor: 1=nessuna modifica, >1 piu' veloce, <1 piu' lento. semitones:
+// spostamento di intonazione indipendente dalla velocita'. Interleaccia i canali (SoundTouch
+// si aspetta un unico stream interleaved), elabora, poi de-interleaccia nel nuovo AudioBuffer.
+// NOTA API: la classe SoundTouch reale (a differenza di quanto si potrebbe supporre) non espone
+// putSamples/receiveSamples/flush direttamente sull'istanza: questi vivono su .inputBuffer/
+// .outputBuffer (FifoSampleBuffer), e non esiste alcun metodo flush(). Inoltre Stretch assume
+// internamente 44100Hz finche' non gli si passa il sample rate reale via stretch.setParameters:
+// senza questa chiamata le finestre WSOLA sono tarate sul sample rate sbagliato e con sample
+// rate diversi (es. 8000Hz nei test, o qualunque file non a 44.1kHz) il risultato e' gravemente
+// sballato. Si referenzia "window.SoundTouch" esplicitamente (non la bare "SoundTouch") perche'
+// questo script e quello vendorizzato sono due <script> distinti: la classe non attraversa il
+// confine via scope lessicale, solo via l'assegnazione a window fatta in soundtouch-vendor.js
+// (coerente con altri riferimenti window.* gia' presenti in questo file, es. window.AudioContext).
+async function applyTimeStretch(buffer, tempoFactor, semitones){
+  const st = new window.SoundTouch();
+  st.stretch.setParameters(buffer.sampleRate, 0, 0, 0); // 0 = usa i default automatici, ma con lo sample rate corretto
+  st.tempo = tempoFactor;
+  st.pitchSemitones = semitones;
+  const nCh = buffer.numberOfChannels, len = buffer.length, sr = buffer.sampleRate;
+  const chans = []; for(let ch=0; ch<nCh; ch++) chans.push(buffer.getChannelData(ch));
+  const interleaved = new Float32Array(len*2);   // SoundTouch lavora sempre in coppie (mono duplicato se serve)
+  for(let i=0;i<len;i++){ interleaved[i*2]=chans[0][i]; interleaved[i*2+1]=(nCh>1?chans[1][i]:chans[0][i]); }
+  st.inputBuffer.putSamples(interleaved, 0, len);
+  st.process();
+  const outFrames = st.outputBuffer.frameCount;
+  const outLen = Math.max(1, outFrames);
+  const outInterleaved = new Float32Array(outLen*2);
+  if(outFrames>0) st.outputBuffer.receiveSamples(outInterleaved, outFrames);
+  const out = ac().createBuffer(nCh, outLen, sr);
+  const outL = out.getChannelData(0), outR = nCh>1 ? out.getChannelData(1) : null;
+  for(let i=0;i<outFrames;i++){ outL[i]=outInterleaved[i*2]; if(outR) outR[i]=outInterleaved[i*2+1]; }
+  return out;
+}
 document.getElementById('clipRev').onchange=(e)=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl){ e.target.checked=false; return; }
   pushUndo();
   if(!cl.origBuffer) cl.origBuffer=cl.buffer;
