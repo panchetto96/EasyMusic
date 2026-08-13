@@ -1,4 +1,11 @@
 let catalogRowEls={};   // "genere|indice" -> elemento riga, per lo stato "in ascolto" (previewing)
+// Colore per categoria nel catalogo: stesso hash deterministico su tutti i generi (es. "Drums" sempre
+// lo stesso colore ovunque compaia), riusando la stessa tavolozza trackColors gia' usata per le colonne
+// della griglia — coerenza visiva, non serve una mappa fissa categoria->colore da mantenere a mano.
+function catalogCategoryColor(cat){
+  let h=0; for(let i=0;i<cat.length;i++) h=(h*31+cat.charCodeAt(i))|0;
+  return trackColors[Math.abs(h)%trackColors.length];
+}
 (function(){
   if(typeof GENRES==='undefined') return;
   const wrap=document.querySelector('.wrap');
@@ -14,9 +21,10 @@ let catalogRowEls={};   // "genere|indice" -> elemento riga, per lo stato "in as
     (GENRES[genre].clips||[]).forEach((cl,idx)=>{
       const cat=categoryOf(cl.name);
       if(!groups[cat]){
-        const catBlock=document.createElement('div'); catBlock.style.cssText='margin:6px 0 0 8px';
+        const catColor=catalogCategoryColor(cat);
+        const catBlock=document.createElement('div'); catBlock.style.cssText='margin:6px 0 0 8px;border-left:2px solid '+catColor+';padding-left:6px';
         const catLab=document.createElement('div'); catLab.textContent=cat;
-        catLab.style.cssText='color:var(--dim);font-size:11px;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px';
+        catLab.style.cssText='color:'+catColor+';font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-bottom:2px';
         catBlock.appendChild(catLab);
         groups[cat]=catBlock; det.appendChild(catBlock);
       }

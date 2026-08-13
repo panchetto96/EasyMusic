@@ -4,7 +4,7 @@ let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;
 (function(){
   const box=document.querySelector('.grid-box');
   const bar=document.createElement('div');
-  bar.style.cssText='display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px;background:#181b22;border:1px solid #2c313d;border-radius:10px';
+  bar.style.cssText='display:flex;gap:10px;align-items:center;margin-bottom:12px;flex-wrap:wrap;padding:10px;background:#181b22;border:1px solid #2c313d;border-radius:10px;max-width:580px';
   const lab=document.createElement('label'); lab.textContent='🎚️ Genere'; lab.style.cssText='font-size:13px;color:#8b93a4';
   sel=document.createElement('select');
   sel.style.cssText='background:#20242e;color:#e8ebf1;border:1px solid #2c313d;border-radius:8px;padding:8px 10px;font-size:13px;min-width:230px';
