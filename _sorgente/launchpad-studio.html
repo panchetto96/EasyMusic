@@ -180,7 +180,7 @@
           <label>fine</label><input type="range" id="clipTrimEnd" min="0" max="1" step="0.001" value="1" style="flex:1;min-width:60px;accent-color:var(--accent)">
         </div>
       </div>
-      <div class="row"><button class="act" id="saveModBtn" style="display:none" title="Salva taglio/reverse/pitch di questo pad solo per il genere attualmente caricato">💾 Salva modifica</button></div>
+      <div class="row"><button class="act" id="saveModBtn" style="display:none" title="Salva taglio/reverse/pitch/BPM di questo pad solo per il genere attualmente caricato">💾 Salva modifica</button></div>
       <div class="row"><label style="font-size:12px"><input type="checkbox" id="clipRev"> Reverse (suona al contrario) — pad selezionato</label></div>
       <div class="row" style="font-size:12px;flex-wrap:wrap">
         <label style="display:none">Gain</label><input type="range" id="clipGain" min="0" max="1.5" step="0.01" value="1" style="width:84px;accent-color:var(--accent);display:none">
@@ -1071,7 +1071,7 @@ document.getElementById('clipTrimEnd').oninput=(e)=>{ const{r,c}=selected; const
 document.getElementById('clipTrimStart').addEventListener('pointerdown',()=>pushUndo());
 document.getElementById('clipTrimEnd').addEventListener('pointerdown',()=>pushUndo());
 
-// Salva taglio/reverse/pitch del pad selezionato SOLO per il genere di fabbrica attualmente caricato
+// Salva taglio/reverse/pitch/BPM del pad selezionato SOLO per il genere di fabbrica attualmente caricato
 // nel banco attivo (vedi loadedGenreKeyByBank/updateSaveModBtnVisibility) - non tocca altri generi che
 // riusano lo stesso suono, ne' altri pad dello stesso genere.
 document.getElementById('saveModBtn').onclick=async ()=>{
@@ -1191,7 +1191,7 @@ document.getElementById('clipChoke').onchange=(e)=>{ const{r,c}=selected; const 
 document.getElementById('clipGain').addEventListener('pointerdown',()=>pushUndo());
 document.getElementById('clipPitch').addEventListener('pointerdown',()=>pushUndo());
 document.getElementById('clipSourceBpm').oninput=(e)=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl) return;
-  const v=+e.target.value; cl.sourceBpm=(e.target.value===''||!v)?null:v; };
+  const v=+e.target.value; cl.sourceBpm=(e.target.value===''||!v)?null:Math.max(40,Math.min(240,v)); };
 document.getElementById('clipSourceBpm').addEventListener('pointerdown',()=>pushUndo());
 document.getElementById('detectBpmBtn').onclick=()=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl||!cl.buffer) return;
   const est=detectBpm(cl.buffer); if(est==null) return;
@@ -1203,7 +1203,7 @@ let tapTimes=[];
 document.getElementById('tapBtn').onclick=()=>{ const t=performance.now(); tapTimes=tapTimes.filter(x=>t-x<2500); tapTimes.push(t);
   if(tapTimes.length>=2){ let iv=[]; for(let i=1;i<tapTimes.length;i++) iv.push(tapTimes[i]-tapTimes[i-1]);
     const avg=iv.reduce((a,b)=>a+b,0)/iv.length, b=Math.round(60000/avg);
-    if(b>=40&&b<=240){ bpm=b; document.getElementById('bpm').value=b; document.getElementById('bpmVal').textContent=b; } } };
+    if(b>=40&&b<=240){ setProjectBpm(b); } } };
 
 // ====================== TRANSPORT / CLOCK ======================
 const secPerBeat=()=>60/bpm;
@@ -1216,13 +1216,22 @@ function rateFor(clip){ return clipRate(clip)*Math.pow(2, ((clip&&clip.pitch)||0
 // da li' in poi ogni clip con un sourceBpm noto si adatta automaticamente (vedi clipRate). Un solo
 // punto di chiamata: l'inizio di scheduleClip, attraversato sia dalla pressione diretta di un pad
 // Loop sia dal lancio scena — nessun altro hook necessario.
+// Unico punto che scrive project bpm: clampa 40-240, aggiorna campo/etichetta a schermo, riallinea il
+// delay tempo-sincronizzato e riadatta la velocita' di qualunque cosa gia' in riproduzione. opts.skipFieldEcho
+// evita di riscrivere #bpm.value mentre l'utente lo sta digitando (altrimenti ogni tasto premuto verrebbe
+// clampato e riscritto a meta' battitura, corrompendo il valore che si sta scrivendo).
+function setProjectBpm(v, opts){
+  bpm=Math.max(40,Math.min(240,v));
+  if(!opts || !opts.skipFieldEcho) document.getElementById('bpm').value=bpm;
+  document.getElementById('bpmVal').textContent=bpm;
+  if(fxDelay) fxDelay.delayTime.setTargetAtTime(secPerBeat()*(+document.getElementById('dlyTime').value),audioCtx.currentTime,0.05);
+  applyRates();
+}
 function tryEstablishTempoReference(clip){
   if(tempoReferenceSet || !clip || !clip.sourceBpm) return;
-  bpm=clip.sourceBpm;
-  document.getElementById('bpm').value=bpm;
-  document.getElementById('bpmVal').textContent=bpm;
+  if(!(clip.sourceBpm>=40 && clip.sourceBpm<=240)) return;   // guardia extra: mai agganciare un riferimento fuori range
+  setProjectBpm(clip.sourceBpm);
   tempoReferenceSet=true;
-  applyRates();
 }
 // Stima "best effort" del tempo di un AudioBuffer: inviluppo (RMS a finestre di ~10ms) -> autocorrelazione
 // sull'intervallo di lag corrispondente a 60-200 BPM -> il lag col picco piu' alto e' il periodo del beat.
@@ -1263,9 +1272,8 @@ function applyRates(){ if(!audioCtx) return;
 }
 let bpmEditing=false;
 document.getElementById('bpm').addEventListener('focus',()=>{ if(!bpmEditing){ pushUndo(); bpmEditing=true; } });
-document.getElementById('bpm').addEventListener('blur',()=>{ bpmEditing=false; });
-document.getElementById('bpm').oninput=(e)=>{ bpm=Math.max(40,Math.min(240,+e.target.value||120)); document.getElementById('bpmVal').textContent=bpm; if(syncBpm) applyRates();
-  if(fxDelay) fxDelay.delayTime.setTargetAtTime(secPerBeat()*(+document.getElementById('dlyTime').value),audioCtx.currentTime,0.05); };
+document.getElementById('bpm').addEventListener('blur',()=>{ bpmEditing=false; setProjectBpm(bpm); });
+document.getElementById('bpm').oninput=(e)=>{ setProjectBpm(+e.target.value||120, {skipFieldEcho:true}); };
 document.getElementById('syncBpm').onchange=(e)=>{ pushUndo(); syncBpm=e.target.checked; applyRates(); };
 document.getElementById('bars').onchange=(e)=>{ pushUndo(); bars=+e.target.value; phraseBars=bars; };
 document.getElementById('quant').onchange=(e)=>{ pushUndo(); quantMode=e.target.value; };
@@ -1741,7 +1749,7 @@ async function ovrPut(key,val){ const db=await ovrDbOpen(); return new Promise((
 async function ovrGetAll(){ const db=await ovrDbOpen(); return new Promise((res,rej)=>{
   const tx=db.transaction(OVR_STORE,'readonly'); const rq=tx.objectStore(OVR_STORE).getAll();
   rq.onsuccess=()=>res(rq.result||[]); rq.onerror=()=>rej(rq.error); }); }
-let genreOverrides={};   // "genere|r|c" -> {key,trimStart,trimEnd,reversed,pitch}, dalla IndexedDB
+let genreOverrides={};   // "genere|r|c" -> {key,trimStart,trimEnd,reversed,pitch,sourceBpm}, dalla IndexedDB
 async function loadGenreOverridesFromDb(){
   try{ const all=await ovrGetAll(); genreOverrides={}; all.forEach(v=>{ genreOverrides[v.key]=v; }); }catch(e){ genreOverrides={}; }
 }
