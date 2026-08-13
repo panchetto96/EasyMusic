@@ -209,6 +209,16 @@
       <div class="hint">Pad selezionato: <b id="selInfo">nessuno</b></div>
       </details>
 
+      <details class="sec-details" open>
+      <summary>Modifiche suono</summary>
+      <div class="row" style="font-size:12px">
+        <label>Fade in</label><input type="range" id="clipFadeIn" min="0" max="2" step="0.01" value="0" style="flex:1;min-width:60px;accent-color:var(--accent)"><span id="clipFadeInVal" style="color:var(--dim)">0.00s</span>
+      </div>
+      <div class="row" style="font-size:12px">
+        <label>Fade out</label><input type="range" id="clipFadeOut" min="0" max="2" step="0.01" value="0" style="flex:1;min-width:60px;accent-color:var(--accent)"><span id="clipFadeOutVal" style="color:var(--dim)">0.00s</span>
+      </div>
+      </details>
+
       <div class="divider"></div>
       <div class="hint"><b>Scorciatoie:</b> <kbd>Spazio</kbd> Play/Stop · <kbd>L</kbd> carica · <kbd>R</kbd> registra · <kbd>Ctrl</kbd>+<kbd>Z</kbd> annulla · <kbd>Ctrl</kbd>+<kbd>Y</kbd> ripeti.</div>
     </div>
@@ -1088,6 +1098,8 @@ function selectPad(r,c){ selected={r,c}; document.getElementById('selInfo').text
   const cg=document.getElementById('clipGain'); if(cg) cg.value=(cl&&cl.gain!=null)?cl.gain:1;
   const cpi=document.getElementById('clipPitch'); if(cpi){ cpi.value=(cl&&cl.pitch)||0; document.getElementById('clipPitchVal').textContent=cpi.value; }
   const csb=document.getElementById('clipSourceBpm'); if(csb) csb.value=(cl&&cl.sourceBpm)||'';
+  const cfi=document.getElementById('clipFadeIn'); if(cfi){ cfi.value=(cl&&cl.fadeIn)||0; document.getElementById('clipFadeInVal').textContent=((cl&&cl.fadeIn)||0).toFixed(2)+'s'; }
+  const cfo=document.getElementById('clipFadeOut'); if(cfo){ cfo.value=(cl&&cl.fadeOut)||0; document.getElementById('clipFadeOutVal').textContent=((cl&&cl.fadeOut)||0).toFixed(2)+'s'; }
   const cch=document.getElementById('clipChoke'); if(cch) cch.value=(cl&&cl.choke)||0;
   const dur=(cl&&cl.buffer)?cl.buffer.duration:0;
   const cts=document.getElementById('clipTrimStart'); if(cts) cts.value=dur?((cl&&cl.trimStart||0)/dur):0;
@@ -1243,6 +1255,12 @@ document.getElementById('clipPitch').addEventListener('pointerdown',()=>pushUndo
 document.getElementById('clipSourceBpm').oninput=(e)=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl) return;
   const v=+e.target.value; cl.sourceBpm=(e.target.value===''||!v)?null:Math.max(40,Math.min(240,v)); };
 document.getElementById('clipSourceBpm').addEventListener('pointerdown',()=>pushUndo());
+document.getElementById('clipFadeIn').oninput=(e)=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl) return;
+  cl.fadeIn=+e.target.value; document.getElementById('clipFadeInVal').textContent=cl.fadeIn.toFixed(2)+'s'; };
+document.getElementById('clipFadeIn').addEventListener('pointerdown',()=>pushUndo());
+document.getElementById('clipFadeOut').oninput=(e)=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl) return;
+  cl.fadeOut=+e.target.value; document.getElementById('clipFadeOutVal').textContent=cl.fadeOut.toFixed(2)+'s'; };
+document.getElementById('clipFadeOut').addEventListener('pointerdown',()=>pushUndo());
 document.getElementById('detectBpmBtn').onclick=()=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl||!cl.buffer) return;
   const est=detectBpm(cl.buffer); if(est==null) return;
   pushUndo();
@@ -1430,7 +1448,7 @@ function triggerDrumHit(r,c,velocity){
   const {start:tS,end:tE}=trimBounds(clip);
   const src=ac().createBufferSource(); src.buffer=clip.buffer; src.loop=false; src.playbackRate.value=rateFor(clip);
   const vel=Math.max(0,Math.min(1,(velocity!=null?velocity:127)/127));
-  const g=ac().createGain(); g.gain.setValueAtTime(0,now()); g.gain.linearRampToValueAtTime(gainFor(clip)*vel,now()+0.005);
+  const g=ac().createGain(); g.gain.setValueAtTime(0,now()); g.gain.linearRampToValueAtTime(gainFor(clip)*vel,now()+Math.max(0.005,clip.fadeIn||0));
   src.connect(g).connect(trackGains[c]); src.start(now(),tS,tE-tS); applyChoke(clip,src,g,now(),{col:c,row:r,kind:'oneshot'});
   oneShots.push(src); src.onended=()=>{ oneShots=oneShots.filter(s=>s!==src); if(drumVoice&&drumVoice.src===src) drumVoice=null; };
   drumVoice={src,g,r,c};
@@ -1450,7 +1468,7 @@ function playOnce(r,c){
   stopOneShotVoice();
   const {start:tS,end:tE}=trimBounds(clip);
   const src=ac().createBufferSource(); src.buffer=clip.buffer; src.loop=false; src.playbackRate.value=rateFor(clip);
-  const g=ac().createGain(); g.gain.setValueAtTime(0,now()); g.gain.linearRampToValueAtTime(gainFor(clip),now()+0.005);
+  const g=ac().createGain(); g.gain.setValueAtTime(0,now()); g.gain.linearRampToValueAtTime(gainFor(clip),now()+Math.max(0.005,clip.fadeIn||0));
   src.connect(g).connect(trackGains[c]); src.start(now(),tS,tE-tS); applyChoke(clip,src,g,now(),{col:c,row:r,kind:'oneshot'});
   oneShots.push(src); src.onended=()=>{ oneShots=oneShots.filter(s=>s!==src); if(oneShotVoice&&oneShotVoice.src===src) oneShotVoice=null; };
   oneShotVoice={src,g,r,c};
@@ -1550,7 +1568,7 @@ function startGate(r,c){
   const clip=clips[r][c];
   const {start:tS,end:tE}=trimBounds(clip);
   const src=ac().createBufferSource(); src.buffer=clip.buffer; src.loop=true; src.loopStart=tS; src.loopEnd=tE; src.playbackRate.value=rateFor(clip);
-  const g=ac().createGain(); g.gain.setValueAtTime(0,now()); g.gain.linearRampToValueAtTime(gainFor(clip),now()+0.005);
+  const g=ac().createGain(); g.gain.setValueAtTime(0,now()); g.gain.linearRampToValueAtTime(gainFor(clip),now()+Math.max(0.005,clip.fadeIn||0));
   src.connect(g).connect(trackGains[c]);
   const grate=src.playbackRate.value||1, gper=(tE-tS)/grate;
   let goff=tS; if(gper>0.0001 && playing){ let e=now()-startTime; e=((e%gper)+gper)%gper; goff=tS+e*grate; }
@@ -1560,7 +1578,7 @@ function startGate(r,c){
 }
 function stopGate(r,c){
   const k=r*8+c, o=gateSrc[k];
-  if(o){ const t=now(); try{ o.g.gain.setValueAtTime(o.g.gain.value,t); o.g.gain.linearRampToValueAtTime(0,t+0.006); o.src.stop(t+0.02);}catch(e){} delete gateSrc[k]; }
+  if(o){ const t=now(); const clip=clips[r][c]; const fo=Math.max(0.006,(clip&&clip.fadeOut)||0); try{ o.g.gain.setValueAtTime(o.g.gain.value,t); o.g.gain.linearRampToValueAtTime(0,t+fo); o.src.stop(t+fo+0.014);}catch(e){} delete gateSrc[k]; }
   padEls[r][c].classList.remove('playing'); updateLed(r,c);
 }
 // ---- SCENE LAUNCH: lancia un'intera riga su tutte le tracce, allineati ----
@@ -1580,7 +1598,7 @@ function scheduleClip(r,c,when){
   if(ts.src){ try{ if(ts.g){ ts.g.gain.setValueAtTime(ts.g.gain.value,when); ts.g.gain.linearRampToValueAtTime(0,when+F);} ts.src.stop(when+F+0.006);}catch(e){} }
   const {start:tS,end:tE}=trimBounds(clip);
   const src=ac().createBufferSource(); src.buffer=clip.buffer; src.loop=true; src.loopStart=tS; src.loopEnd=tE; src.playbackRate.value=rateFor(clip);
-  const g=ac().createGain(); g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(gainFor(clip),when+F);
+  const g=ac().createGain(); g.gain.setValueAtTime(0,when); g.gain.linearRampToValueAtTime(gainFor(clip),when+Math.max(F,clip.fadeIn||0));
   src.connect(g).connect(trackGains[c]);
   // aggancio di fase: entra subito ma allineato alla griglia globale (Re-sync la ri-ancora a zero)
   const rate=src.playbackRate.value||1, periodOut=(tE-tS)/rate;
@@ -1594,7 +1612,8 @@ function scheduleClip(r,c,when){
 }
 function stopTrackClipAt(c,t){
   const ts=trackState[c]; const F=0.006;
-  if(ts.src){ try{ if(ts.g){ ts.g.gain.setValueAtTime(ts.g.gain.value,t); ts.g.gain.linearRampToValueAtTime(0,t+F);} ts.src.stop(t+F+0.006);}catch(e){} }
+  if(ts.src){ const pr=ts.playingRow; const clip=(pr!=null)?clips[pr][c]:null; const fo=Math.max(F,(clip&&clip.fadeOut)||0);
+    try{ if(ts.g){ ts.g.gain.setValueAtTime(ts.g.gain.value,t); ts.g.gain.linearRampToValueAtTime(0,t+fo);} ts.src.stop(t+fo+0.006);}catch(e){} }
   ts.src=null; ts.g=null; const pr=ts.playingRow, qr=ts.queuedRow; ts.playingRow=null; ts.queuedRow=null;
   if(pr!=null){ renderPad(pr,c); updateLed(pr,c); }
   if(qr!=null && qr!==pr){ renderPad(qr,c); updateLed(qr,c); }
