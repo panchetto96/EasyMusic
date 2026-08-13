@@ -1301,7 +1301,12 @@ function decodeCatalogClip(genre,idx){
   const key=genre+'|'+idx;
   if(!catalogBufferCache.has(key)){
     const cl=GENRES[genre].clips[idx];
-    catalogBufferCache.set(key, ac().decodeAudioData(b64ToAb(cl.data)));
+    const p=ac().decodeAudioData(b64ToAb(cl.data));
+    // Se la decodifica fallisce, non la teniamo in cache per sempre: un secondo tentativo
+    // (es. dopo che l'utente ha capito che il file era corrotto e vuole riprovare comunque)
+    // deve poter ripartire da zero invece di ricevere per sempre la stessa promise rifiutata.
+    p.catch(()=>{ if(catalogBufferCache.get(key)===p) catalogBufferCache.delete(key); });
+    catalogBufferCache.set(key, p);
   }
   return catalogBufferCache.get(key);
 }
@@ -1319,7 +1324,9 @@ async function previewCatalogClip(genre,idx){
   ac().resume();
   const claim={key,src:null,g:null};
   previewSrc=claim;
-  const buffer=await decodeCatalogClip(genre,idx);
+  let buffer;
+  try{ buffer=await decodeCatalogClip(genre,idx); }
+  catch(e){ if(previewSrc===claim) previewSrc=null; return; }   // decodifica fallita: nessuna voce da avviare, reclamo rilasciato
   if(previewSrc!==claim) return;   // superata da un'altra chiamata mentre decodificava: niente voce orfana
   const src=ac().createBufferSource(); src.buffer=buffer; src.loop=false;
   const g=ac().createGain(); g.gain.setValueAtTime(0,now()); g.gain.linearRampToValueAtTime(1,now()+0.005);
@@ -1358,13 +1365,16 @@ function isValidDropTarget(src,r,c){
 // alimenta solo i banchi). Dopo un piazzamento riuscito ricalcola i colori-per-categoria, a differenza
 // del trascinamento pad-a-pad: qui e' proprio il punto, l'utente deve vedere l'auto-organizzazione live.
 async function completeCatalogPlace(src,r,c){
+  padEls[r][c].classList.remove('dragover');
   if(perfMode==='drums'){ showDropStatus('Non disponibile in modalità Drums'); return; }
   const cl=GENRES[src.genre].clips[src.idx];
   const cat=categoryOf(cl.name);
   if(clips[r][c]){ showDropStatus('Pad occupato'); return; }
   const colCat=columnCategoryOf(clips,c);
   if(colCat!==null && colCat!==cat){ showDropStatus('Nessun posto libero per «'+cat+'»'); return; }
-  const buffer=await decodeCatalogClip(src.genre,src.idx);
+  let buffer;
+  try{ buffer=await decodeCatalogClip(src.genre,src.idx); }
+  catch(e){ showDropStatus('Suono non decodificabile'); return; }
   if(clips[r][c]) return;   // occupato nel frattempo (decodifica asincrona): abbandona senza sovrascrivere
   pushUndo();
   const raw=b64ToAb(cl.data);

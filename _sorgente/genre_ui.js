@@ -17,6 +17,7 @@ let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;
   newKitBtn.style.cssText='background:#20242e;border:1px solid #2c313d;color:#e8ebf1;border-radius:8px;padding:9px 14px;cursor:pointer;font-size:13px';
   bar.appendChild(newKitBtn);
   newKitBtn.onclick=()=>{
+    if(perfMode==='drums'){ stat.textContent='Non disponibile in modalità Drums'; return; }
     const name=prompt('Nome del kit:'); if(!name) return;
     pushUndo();
     for(let r=0;r<ROWS;r++)for(let c=0;c<COLS;c++) clips[r][c]=null;
@@ -25,12 +26,16 @@ let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;
     stat.textContent='Nuovo kit «'+name+'» — trascina suoni dal catalogo per riempirlo.';
   };
   refreshGenreSelectOptions=function(){
+    const prev=sel.value;
     customKitOptionEls.forEach(o=>o.remove());
     customKitOptionEls=[];
-    if(!customKits.length) return;
-    const sep=document.createElement('option'); sep.disabled=true; sep.textContent='— I tuoi kit —';
-    sel.appendChild(sep); customKitOptionEls.push(sep);
-    customKits.forEach(k=>{ const o=document.createElement('option'); o.value='kit:'+k.id; o.textContent=k.name; sel.appendChild(o); customKitOptionEls.push(o); });
+    if(customKits.length){
+      const sep=document.createElement('option'); sep.disabled=true; sep.textContent='— I tuoi kit —';
+      sel.appendChild(sep); customKitOptionEls.push(sep);
+      customKits.forEach(k=>{ const o=document.createElement('option'); o.value='kit:'+k.id; o.textContent=k.name; sel.appendChild(o); customKitOptionEls.push(o); });
+    }
+    if(Array.prototype.some.call(sel.children, o=>o.value===prev)) sel.value=prev;
+    updateDelKitVisibility();
   };
   updateDelKitVisibility=function(){ delKitBtn.style.display = sel.value.startsWith('kit:') ? 'inline-block' : 'none'; };
   sel.onchange=updateDelKitVisibility;
@@ -51,18 +56,30 @@ let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;
     return out;
   }
   saveKitBtn.onclick=async ()=>{
-    const name=prompt('Nome del kit:', draftKitName||'Kit personalizzato'); if(!name) return;
-    const kit=buildKitSnapshot(name, newKitId());
+    const selectedKit = sel.value.startsWith('kit:') ? customKits.find(k=>k.id===sel.value.slice(4)) : null;
+    const name=prompt('Nome del kit:', draftKitName||(selectedKit?selectedKit.name:'Kit personalizzato')); if(!name) return;
+    // Se il kit personalizzato attualmente selezionato ha lo stesso nome confermato dall'utente,
+    // interpretiamo il salvataggio come un AGGIORNAMENTO di quel kit (stesso id) invece che una
+    // nuova voce: kitPut sovrascrive gia' per chiave in IndexedDB, qui basta aggiornare l'array
+    // customKits sul posto (niente push) cosi' non compare un doppione nel <select>.
+    const updating = !!(selectedKit && name===selectedKit.name);
+    const kit=buildKitSnapshot(name, updating?selectedKit.id:newKitId());
     await kitPut(kit);
-    customKits.push(kit);
+    if(updating){
+      const idx=customKits.findIndex(k=>k.id===kit.id);
+      if(idx>=0) customKits[idx]=kit; else customKits.push(kit);
+    } else {
+      customKits.push(kit);
+    }
     refreshGenreSelectOptions();
     sel.value='kit:'+kit.id;
     updateDelKitVisibility();
     stat.textContent='Kit «'+name+'» salvato ✓';
   };
 
-  delKitBtn=document.createElement('button'); delKitBtn.textContent='🗑️ Elimina kit'; delKitBtn.style.display='none';
+  delKitBtn=document.createElement('button'); delKitBtn.textContent='🗑️ Elimina kit';
   delKitBtn.style.cssText=newKitBtn.style.cssText;
+  delKitBtn.style.display='none';
   bar.appendChild(delKitBtn);
   delKitBtn.onclick=async ()=>{
     if(!sel.value.startsWith('kit:')) return;
@@ -87,7 +104,7 @@ let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;
       clips:kit.clips.map(cl=>({r:cl.r,c:cl.c,name:cl.name,mime:cl.mime,mode:cl.mode,trimStart:cl.trimStart,trimEnd:cl.trimEnd,sourceBpm:cl.sourceBpm,data:abToB64(cl.raw)}))};
     const blob=new Blob([JSON.stringify(out)],{type:'application/json'});
     const a=document.createElement('a'); a.href=URL.createObjectURL(blob);
-    a.download=kit.name.replace(/[^a-z0-9 _-]/gi,'')+'.lpkit'; a.click();
+    a.download=(kit.name.replace(/[^a-z0-9 _-]/gi,'')||'kit')+'.lpkit'; a.click();
     setTimeout(()=>URL.revokeObjectURL(a.href),2000);
   };
 
@@ -112,6 +129,7 @@ let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;
     }catch(err){ alert('File .lpkit non valido.'); }
   };
   refreshGenreSelectOptions();
+  updateDelKitVisibility();
   box.insertBefore(bar, box.firstChild);
   async function loadGenreData(data,label){
     stat.textContent='Carico '+label+'…'; await new Promise(r=>setTimeout(r,20));

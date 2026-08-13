@@ -21,8 +21,9 @@ let catalogRowEls={};   // "genere|indice" -> elemento riga, per lo stato "in as
         groups[cat]=catBlock; det.appendChild(catBlock);
       }
       const row=document.createElement('div'); row.className='cat-row'; row.textContent=cl.name;
-      row.onpointerdown=(e)=>{ if(e.ctrlKey){ e.preventDefault(); dragSource={kind:'catalog',genre,idx}; } };
-      row.onclick=async ()=>{
+      row.onpointerdown=(e)=>{ if(e.ctrlKey){ e.preventDefault(); stopCatalogPreview(); dragSource={kind:'catalog',genre,idx}; } };
+      row.onclick=async (e)=>{
+        if(e&&e.ctrlKey) return;   // Ctrl+clic ferma/arma solo il trascinamento (onpointerdown sopra): non deve anche avviare un'anteprima
         const key=genre+'|'+idx;
         const wasThis = previewSrc && previewSrc.key===key;
         await previewCatalogClip(genre,idx);
