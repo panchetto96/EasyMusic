@@ -1636,7 +1636,7 @@ document.getElementById('setInput').onchange=async(e)=>{
     await stopAllSmooth(1.2);
     perfMode=null;   // esce dalla modalita' Drums: qui si sta per sostituire clips/drumKit interi
     loadedGenreKeyByBank=[null,null,null,null]; updateSaveModBtnVisibility();   // un set aperto non e' un genere di fabbrica
-    bpm=data.bpm||120; document.getElementById('bpm').value=bpm; document.getElementById('bpmVal').textContent=bpm;
+    bpm=Math.max(40,Math.min(240,data.bpm||120)); document.getElementById('bpm').value=bpm; document.getElementById('bpmVal').textContent=bpm;
     bars=data.bars||4; document.getElementById('bars').value=bars;
     quantMode='off'; document.getElementById('quant').value='off';   // default reattivo: parte subito (resta in fase)
     phraseBars=data.phraseBars||bars;
@@ -1815,7 +1815,7 @@ async function restoreAutosave(snap){
   stopAll();
   perfMode=null;   // esce dalla modalita' Drums: qui si sta per sostituire clips/drumKit interi
   loadedGenreKeyByBank=[null,null,null,null]; updateSaveModBtnVisibility();   // l'autosave non e' un genere di fabbrica
-  bpm=snap.bpm||120; document.getElementById('bpm').value=bpm; document.getElementById('bpmVal').textContent=bpm;
+  bpm=Math.max(40,Math.min(240,snap.bpm||120)); document.getElementById('bpm').value=bpm; document.getElementById('bpmVal').textContent=bpm;
   bars=snap.bars||4; document.getElementById('bars').value=bars;
   quantMode=snap.quantMode||'off'; document.getElementById('quant').value=quantMode;
   phraseBars=snap.phraseBars||bars;
@@ -1888,7 +1888,7 @@ function captureState(){
     drumKit:drumKit.map(row=>row.map(cloneClip)) };
 }
 function applyState(state){
-  bpm=state.bpm; document.getElementById('bpm').value=bpm; document.getElementById('bpmVal').textContent=bpm;
+  bpm=Math.max(40,Math.min(240,state.bpm||120)); document.getElementById('bpm').value=bpm; document.getElementById('bpmVal').textContent=bpm;
   bars=state.bars; document.getElementById('bars').value=bars;
   quantMode=state.quantMode; document.getElementById('quant').value=quantMode;
   phraseBars=state.phraseBars;
