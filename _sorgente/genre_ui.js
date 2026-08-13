@@ -184,6 +184,7 @@ let refreshGenreSelectOptions, updateDelKitVisibility, loadGenre, loadCustomKit;
         const ovr=genreOverrides[genreKey+'|'+cl.r+'|'+cl.c];
         if(ovr){
           nc.trimStart=ovr.trimStart||0; nc.trimEnd=ovr.trimEnd!=null?ovr.trimEnd:null; nc.pitch=ovr.pitch||0;
+          if(ovr.sourceBpm!=null) nc.sourceBpm=ovr.sourceBpm;
           if(ovr.reversed){ nc.origBuffer=audio; nc.revBuffer=reversedBuffer(audio); nc.buffer=nc.revBuffer; nc.reversed=true; }
         }
       }

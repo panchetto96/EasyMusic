@@ -188,6 +188,10 @@
         <label style="display:none">Choke</label><select id="clipChoke" style="width:56px;display:none"><option value="0">—</option><option value="1">1</option><option value="2">2</option><option value="3">3</option><option value="4">4</option></select>
       </div>
       <div class="row" style="font-size:12px">
+        <label>BPM di origine</label><input type="number" id="clipSourceBpm" min="40" max="240" style="width:64px">
+        <button class="act" id="detectBpmBtn" title="Stima il BPM del pad selezionato analizzando la forma d'onda (indicativo, verificalo/correggilo nel campo)">🔍 Rileva BPM</button>
+      </div>
+      <div class="row" style="font-size:12px">
         <button class="act" id="copyClipBtn" title="Copia modo/gain/pitch/trim/choke/reverse di questo pad">📋 Copia impostazioni</button>
         <button class="act" id="pasteClipBtn" title="Incolla sul pad selezionato" disabled>📥 Incolla impostazioni</button>
       </div>
@@ -1073,7 +1077,7 @@ document.getElementById('clipTrimEnd').addEventListener('pointerdown',()=>pushUn
 document.getElementById('saveModBtn').onclick=async ()=>{
   const genre=loadedGenreKeyByBank[activeBank]; if(!genre) return;
   const {r,c}=selected; const cl=clips[r][c]; if(!cl) return;
-  await saveGenreOverride(genre,r,c,{trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,reversed:!!cl.reversed,pitch:cl.pitch||0});
+  await saveGenreOverride(genre,r,c,{trimStart:cl.trimStart||0,trimEnd:cl.trimEnd!=null?cl.trimEnd:null,reversed:!!cl.reversed,pitch:cl.pitch||0,sourceBpm:cl.sourceBpm||null});
   const btn=document.getElementById('saveModBtn'); const orig=btn.textContent;
   btn.textContent='✓ Salvato'; setTimeout(()=>{ btn.textContent=orig; },1200);
 };
@@ -1083,6 +1087,7 @@ function selectPad(r,c){ selected={r,c}; document.getElementById('selInfo').text
   const cr=document.getElementById('clipRev'); if(cr) cr.checked=!!(cl&&cl.reversed);
   const cg=document.getElementById('clipGain'); if(cg) cg.value=(cl&&cl.gain!=null)?cl.gain:1;
   const cpi=document.getElementById('clipPitch'); if(cpi){ cpi.value=(cl&&cl.pitch)||0; document.getElementById('clipPitchVal').textContent=cpi.value; }
+  const csb=document.getElementById('clipSourceBpm'); if(csb) csb.value=(cl&&cl.sourceBpm)||'';
   const cch=document.getElementById('clipChoke'); if(cch) cch.value=(cl&&cl.choke)||0;
   const dur=(cl&&cl.buffer)?cl.buffer.duration:0;
   const cts=document.getElementById('clipTrimStart'); if(cts) cts.value=dur?((cl&&cl.trimStart||0)/dur):0;
@@ -1185,6 +1190,15 @@ document.getElementById('clipPitch').oninput=(e)=>{ document.getElementById('cli
 document.getElementById('clipChoke').onchange=(e)=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(cl){ pushUndo(); cl.choke=+e.target.value; } };
 document.getElementById('clipGain').addEventListener('pointerdown',()=>pushUndo());
 document.getElementById('clipPitch').addEventListener('pointerdown',()=>pushUndo());
+document.getElementById('clipSourceBpm').oninput=(e)=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl) return;
+  const v=+e.target.value; cl.sourceBpm=(e.target.value===''||!v)?null:v; };
+document.getElementById('clipSourceBpm').addEventListener('pointerdown',()=>pushUndo());
+document.getElementById('detectBpmBtn').onclick=()=>{ const{r,c}=selected; const cl=activeGrid()[r][c]; if(!cl||!cl.buffer) return;
+  const est=detectBpm(cl.buffer); if(est==null) return;
+  pushUndo();
+  cl.sourceBpm=est;
+  document.getElementById('clipSourceBpm').value=est;
+};
 let tapTimes=[];
 document.getElementById('tapBtn').onclick=()=>{ const t=performance.now(); tapTimes=tapTimes.filter(x=>t-x<2500); tapTimes.push(t);
   if(tapTimes.length>=2){ let iv=[]; for(let i=1;i<tapTimes.length;i++) iv.push(tapTimes[i]-tapTimes[i-1]);
@@ -1209,6 +1223,24 @@ function tryEstablishTempoReference(clip){
   document.getElementById('bpmVal').textContent=bpm;
   tempoReferenceSet=true;
   applyRates();
+}
+// Stima "best effort" del tempo di un AudioBuffer: inviluppo (RMS a finestre di ~10ms) -> autocorrelazione
+// sull'intervallo di lag corrispondente a 60-200 BPM -> il lag col picco piu' alto e' il periodo del beat.
+// Funziona bene su loop ritmici con transienti chiari, male su contenuto non percussivo (voce, ambient):
+// e' un suggerimento di partenza, non una certezza — l'utente lo conferma o corregge nel campo.
+function detectBpm(buffer){
+  const sr=buffer.sampleRate, data=buffer.getChannelData(0);
+  const hop=Math.round(sr*0.01);
+  const env=[]; for(let i=0;i<data.length;i+=hop){ let s=0; for(let j=i;j<Math.min(i+hop,data.length);j++) s+=data[j]*data[j]; env.push(Math.sqrt(s/hop)); }
+  const envRate=sr/hop;
+  const minLag=Math.round(envRate*60/200), maxLag=Math.round(envRate*60/60);
+  let bestLag=-1, bestScore=-Infinity;
+  for(let lag=minLag; lag<=maxLag && lag<env.length; lag++){
+    let score=0; for(let i=0;i<env.length-lag;i++) score+=env[i]*env[i+lag];
+    if(score>bestScore){ bestScore=score; bestLag=lag; }
+  }
+  if(bestLag<=0) return null;
+  return Math.round(60/(bestLag/envRate));
 }
 function gainFor(clip){ return (clip&&clip.gain!=null)?clip.gain:1; }
 const chokeVoices={};
