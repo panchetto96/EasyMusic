@@ -2,20 +2,22 @@
 # -*- coding: utf-8 -*-
 """
 Ricostruisce _sorgente/drumkit_preset.json: e' "l'insieme dei drum trovati nei
-set" (confermato dall'utente il 13/08/2026) - qui prendiamo i clip con nome che
-contiene "drum" dai generi gia' presenti in genres.json, fino a riempire 64 pad
-(8x8), senza ripetere lo stesso genere piu' di 8 volte cosi' da avere varieta'.
+set" (confermato dall'utente il 13/08/2026) - qui prendiamo i clip la cui
+categoria (per parola chiave nel nome, non solo "contiene drum" - fix del
+14/08/2026, la sola sottostringa "drum" si perdeva quasi tutto: Kick/Snare/
+HiHat/Clap/ecc. non contengono mai letteralmente "drum") e' 'drums' dai generi
+gia' presenti in genres.json, fino a riempire 64 pad (8x8), senza ripetere lo
+stesso genere piu' di 8 volte cosi' da avere varieta'.
 
 USO: python build_drumkit_preset.py   (dopo build_genres.py)
 """
-import json, re, pathlib
+import json, pathlib
+from build_genres import category_of_name
 
 HERE = pathlib.Path(__file__).resolve().parent
 SORGENTE = HERE.parent
 GENRES_PATH = str(SORGENTE / 'genres.json')
 OUT_PATH = str(SORGENTE / 'drumkit_preset.json')
-
-DRUM_NAME_RE = re.compile(r'drum', re.IGNORECASE)
 
 
 def main():
@@ -25,7 +27,7 @@ def main():
     picked = []
     for gname in sorted(genres.keys()):
         clips = genres[gname]['clips']
-        drum_clips = [c for c in clips if DRUM_NAME_RE.search(c['name'])]
+        drum_clips = [c for c in clips if category_of_name(c['name']) == 'drums']
         for c in drum_clips[:8]:
             picked.append({'name': gname + ' - ' + c['name'], 'mime': c['mime'], 'data': c['data']})
         if len(picked) >= 64:

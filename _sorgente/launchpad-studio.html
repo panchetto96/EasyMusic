@@ -550,7 +550,31 @@ let drumKit=new Array(ROWS).fill(null).map(()=>new Array(COLS).fill(null));   //
 function activeGrid(){ return perfMode==='drums' ? drumKit : clips; }
 const trackColors=['#4ea1ff','#39d98a','#ffd23f','#ff7ac2','#b98bff','#ff9a3f','#3fe0d0','#ff5c5c'];
 let trackColorIdx=[0,1,2,3,4,5,6,7];   // colonne dello stesso "tipo" (categoria dedotta dal nome dei clip) condividono l'indice colore
-function categoryOf(name){ const n=(name||'').trim().toLowerCase(); const stripped=n.replace(/[\s_]*\d+[A-Za-z]?(-\d+)?\s*$/,'').trim(); return stripped||n; }
+// Parole chiave -> categoria "macro" del suono, riconosciute nel nome del campione a prescindere
+// da come e' stato chiamato (es. "Drums 1"/"Acoustic Drums"/"drum loop_bum" sono tutti 'drums').
+// Ordine e insiemi coerenti col bucketing per cartella di _sorgente/tools/build_genres.py
+// (drums/perc/bass/melodic/fx/vocal), ma qui si applica al NOME del singolo suono perche' a runtime
+// non c'e' piu' l'informazione di cartella. Se nessuna parola chiave scatta, si ricade sul
+// comportamento precedente (nome meno il numero finale) cosi' i nomi non riconosciuti continuano
+// a raggrupparsi solo se letteralmente uguali a meno di un numero di variante.
+// \d* dopo il gruppo tollera un numero incollato senza separatore (es. "Drums6", "Bass12",
+// "FX1") - molto comune nei pacchetti Novation - senza allentare il confine di parola PRIMA
+// della parola chiave (quindi "Chatter"/"What" non scattano mai su "hat").
+const CATEGORY_KEYWORD_MAP=[
+  ['drums',/\b(?:drum|drums|kick|snare|hat|hihat|clap|tom|cymbal|ride|crash|rim|beat|beats)\d*\b/],
+  ['perc',/\b(?:perc|percs|percussion|shaker|tambourine|conga|bongo|cajon|djembe)\d*\b/],
+  ['bass',/\b(?:bass|subbass|bassline)\d*\b/],
+  ['vocal',/\b(?:vocal|vocals|vox|voice|chant|acapella)\d*\b/],
+  ['melodic',/\b(?:synth|lead|melodic|melody|melo|pluck|arp|arpeggio|piano|keys|key|chord|chords|stab|string|strings|guitar|flute|brass|organ|choir|riff)\d*\b/],
+  ['fx',/\b(?:fx|riser|sweep|impact|whoosh|uplifter|downlifter|transition|noise|texture|atmosphere|ambience)\d*\b/],
+];
+function categoryOf(name){
+  const n=(name||'').trim().toLowerCase();
+  const normalized=n.replace(/[^a-z0-9]+/g,' ').trim();
+  for(const [cat,re] of CATEGORY_KEYWORD_MAP){ if(re.test(normalized)) return cat; }
+  const stripped=n.replace(/[\s_]*\d+[A-Za-z]?(-\d+)?\s*$/,'').trim();
+  return stripped||n;
+}
 function recomputeTrackColors(){
   const cats=new Array(COLS).fill(null);
   for(let c=0;c<COLS;c++){ for(let r=0;r<ROWS;r++){ const cl=clips[r][c]; if(cl){ cats[c]=categoryOf(cl.name); break; } } }

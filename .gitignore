@@ -11,3 +11,5 @@ Registrazioni/
 
 # Worktree per lavoro isolato (superpowers:using-git-worktrees)
 .worktrees/
+
+__pycache__/

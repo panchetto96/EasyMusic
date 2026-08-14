@@ -44,6 +44,32 @@ CATEGORY_MAP = {
 }
 CATEGORY_ORDER = ['drums', 'perc', 'bass', 'melodic', 'fx', 'vocal', 'extra']
 
+# Riconoscimento categoria dal NOME del singolo campione (non dalla cartella), per parola chiave -
+# deve restare identico a CATEGORY_KEYWORD_MAP/categoryOf in _sorgente/launchpad-studio.html, cosi'
+# lo stesso suono viene classificato allo stesso modo sia lato Python (build/repack) sia a runtime
+# nell'app (colorazione colonne, validazione drag&drop dal catalogo). Usato da
+# build_drumkit_preset.py e da repack_genres_by_category.py.
+CATEGORY_KEYWORD_MAP = [
+    ('drums', re.compile(r'\b(?:drum|drums|kick|snare|hat|hihat|clap|tom|cymbal|ride|crash|rim|beat|beats)\d*\b')),
+    ('perc', re.compile(r'\b(?:perc|percs|percussion|shaker|tambourine|conga|bongo|cajon|djembe)\d*\b')),
+    ('bass', re.compile(r'\b(?:bass|subbass|bassline)\d*\b')),
+    ('vocal', re.compile(r'\b(?:vocal|vocals|vox|voice|chant|acapella)\d*\b')),
+    ('melodic', re.compile(r'\b(?:synth|lead|melodic|melody|melo|pluck|arp|arpeggio|piano|keys|key|chord|chords|stab|string|strings|guitar|flute|brass|organ|choir|riff)\d*\b')),
+    ('fx', re.compile(r'\b(?:fx|riser|sweep|impact|whoosh|uplifter|downlifter|transition|noise|texture|atmosphere|ambience)\d*\b')),
+]
+KNOWN_KEYWORD_CATEGORIES = {cat for cat, _ in CATEGORY_KEYWORD_MAP}
+_TRAILING_NUM_RE = re.compile(r'[\s_]*\d+[A-Za-z]?(-\d+)?\s*$')
+
+
+def category_of_name(name):
+    n = (name or '').strip().lower()
+    normalized = re.sub(r'[^a-z0-9]+', ' ', n).strip()
+    for cat, rx in CATEGORY_KEYWORD_MAP:
+        if rx.search(normalized):
+            return cat
+    stripped = _TRAILING_NUM_RE.sub('', n).strip()
+    return stripped or n
+
 # (percorso relativo a ROOT, titolo genere pulito, bpm o None)
 PACKS = [
     (r'Novation Anniversary 3rd Drop\80s Synthpop (Dm, 87bpm)', '80s Synthpop', 87),
@@ -122,43 +148,57 @@ def build_pack(rel_path, title, bpm, log):
                     files.append(os.path.join(dirpath, fn))
         buckets[cat].extend(sorted(files))
 
-    ordered_files = []
+    # Ogni categoria inizia su una colonna nuova (mai due categorie diverse nella
+    # stessa colonna): fix del 14/08/2026, prima una categoria con un numero di file
+    # non multiplo di 8 lasciava che la successiva riempisse il resto della colonna
+    # (es. 5 file "drums" + i primi 3 "perc" finivano tutti nella colonna 0).
+    placements = []   # (colonna_globale, riga, percorso_file)
+    col_offset = 0
     for cat in CATEGORY_ORDER:
-        ordered_files.extend(buckets[cat])
+        files = buckets[cat]
+        if not files:
+            continue
+        for i, fpath in enumerate(files):
+            placements.append((col_offset + i // 8, i % 8, fpath))
+        col_offset += (len(files) + 7) // 8
 
-    log.write(f'[{title}] {len(ordered_files)} file da trascodificare\n')
+    log.write(f'[{title}] {len(placements)} file da trascodificare\n')
     log.flush()
 
-    clips_all = []
+    clip_by_pos = {}
     failures = []
-    for i, fpath in enumerate(ordered_files):
+    for i, (gc, r, fpath) in enumerate(placements):
         b64, err = transcode_to_mp3_b64(fpath)
         if b64 is None:
             failures.append((fpath, err))
             log.write(f'  FALLITO: {fpath}\n    {err}\n')
             log.flush()
             continue
-        clips_all.append({'name': clean_name(os.path.basename(fpath)), 'mime': 'audio/mpeg', 'data': b64})
+        clip_by_pos[(gc, r)] = {'name': clean_name(os.path.basename(fpath)), 'mime': 'audio/mpeg', 'data': b64}
         if (i + 1) % 10 == 0:
-            log.write(f'  ...{i+1}/{len(ordered_files)}\n')
+            log.write(f'  ...{i+1}/{len(placements)}\n')
             log.flush()
 
     genres_out = {}
-    idx = 0
     part = 1
-    while idx < len(clips_all):
-        chunk = clips_all[idx:idx + 64]
-        gtitle = title if part == 1 else f'{title} ({part})'
+    for part_start_col in range(0, col_offset, 8):
         clips_rc = []
-        for j, clip in enumerate(chunk):
-            c = j // 8
-            r = j % 8
-            clips_rc.append({'r': r, 'c': c, 'name': clip['name'], 'mime': clip['mime'], 'data': clip['data']})
+        for local_c in range(8):
+            gc = part_start_col + local_c
+            if gc >= col_offset:
+                break
+            for r in range(8):
+                clip = clip_by_pos.get((gc, r))
+                if clip:
+                    clips_rc.append({'r': r, 'c': local_c, 'name': clip['name'], 'mime': clip['mime'], 'data': clip['data']})
+        if not clips_rc:
+            part += 1
+            continue
+        gtitle = title if part == 1 else f'{title} ({part})'
         entry = {'clips': clips_rc}
         if bpm is not None:
             entry['bpm'] = bpm
         genres_out[gtitle] = entry
-        idx += 64
         part += 1
 
     return genres_out, failures
