@@ -6,7 +6,7 @@
 
 **Architecture:** Nuovo stato globale `perfMode` (`null|'drums'|'keys'`) e griglia indipendente `drumKit` (stessa forma di `clips`). Un helper `activeGrid()` fa sì che editor/trim/copia-incolla/undo riusino il codice esistente puntandolo su `drumKit` invece di `clips` quando serve, senza duplicarlo. Riproduzione: `triggerDrumHit`/`startKeysNote`+`stopKeysNote` sono varianti mirate di `playOnce`/`startGate`+`stopGate` già esistenti (stesso trim/pitch/gain, aggiungono velocity e — per Keys — un offset isomorfo di intonazione).
 
-**Tech Stack:** JavaScript vanilla, Web Audio API, Web MIDI API — stesso stack del resto del file (nessuna nuova dipendenza). Test: harness Node esistente in `C:\Users\panco\AppData\Local\Temp\claude\d--MUSIC-Launchpad-Studio\f54e3e52-eb9c-4bcc-a37e-2616e0913a35\scratchpad\harness.js` (esegue il vero script estratto da `_sorgente/launchpad-studio.html` dentro un DOM/AudioContext finti).
+**Tech Stack:** JavaScript vanilla, Web Audio API, Web MIDI API — stesso stack del resto del file (nessuna nuova dipendenza). Test: harness Node esistente in `<scratchpad>\harness.js` (esegue il vero script estratto da `_sorgente/launchpad-studio.html` dentro un DOM/AudioContext finti).
 
 ## Global Constraints
 
@@ -24,7 +24,7 @@
 
 **Files:**
 - Modify: `D:\MUSIC\Launchpad Studio\_sorgente\launchpad-studio.html` (dopo la riga `let activeBank=0, clips=banks[0];`, circa riga 507)
-- Test: `C:\Users\panco\AppData\Local\Temp\claude\d--MUSIC-Launchpad-Studio\f54e3e52-eb9c-4bcc-a37e-2616e0913a35\scratchpad\test_perfmode_state.js`
+- Test: `<scratchpad>\test_perfmode_state.js`
 
 **Interfaces:**
 - Produce: `perfMode` (let, `null|'drums'|'keys'`), `drumKit` (griglia 8×8, stessa forma di `clips[r][c]`), `activeGrid()` (funzione, nessun argomento, ritorna `drumKit` o `clips`), `keysPitchOffset(r,c)` (funzione, ritorna intero semitoni).
@@ -96,7 +96,7 @@ async function testDrumKitStartsEmpty(){
 - [ ] **Step 2: Esegui e verifica che fallisca**
 
 ```
-cd "C:\Users\panco\AppData\Local\Temp\claude\d--MUSIC-Launchpad-Studio\f54e3e52-eb9c-4bcc-a37e-2616e0913a35\scratchpad"
+cd "<scratchpad>"
 node test_perfmode_state.js
 ```
 Atteso: FAIL — `perfMode`/`drumKit`/`activeGrid`/`keysPitchOffset` non sono definiti (ReferenceError).
@@ -122,7 +122,7 @@ Atteso: `PASS - activeGrid() segue perfMode`, `PASS - keysPitchOffset e' isomorf
 
 ```
 cd "D:\MUSIC\Launchpad Studio\_sorgente" && python assemble.py
-cd "C:\Users\panco\AppData\Local\Temp\claude\d--MUSIC-Launchpad-Studio\f54e3e52-eb9c-4bcc-a37e-2616e0913a35\scratchpad"
+cd "<scratchpad>"
 for f in test_*.js; do node "$f" || echo "FAIL: $f"; done
 ```
 Atteso: nessuna riga `FAIL:` stampata (tutti i test, vecchi e nuovo, passano).
@@ -273,7 +273,7 @@ Atteso: tutti e 4 PASS.
 
 ```
 cd "D:\MUSIC\Launchpad Studio\_sorgente" && python assemble.py
-cd "C:\Users\panco\AppData\Local\Temp\claude\d--MUSIC-Launchpad-Studio\f54e3e52-eb9c-4bcc-a37e-2616e0913a35\scratchpad"
+cd "<scratchpad>"
 for f in test_*.js; do node "$f" || echo "FAIL: $f"; done
 ```
 Verifica in particolare `test_bank_midi.js` (nota 89/19/39 devono lanciare ancora scene, invariato) e `test_scene_cc.js` — nessun impatto atteso, ma vanno riverificati perché `onMidiMessage` è cambiato.
@@ -416,7 +416,7 @@ Atteso: tutti e 3 PASS.
 
 ```
 cd "D:\MUSIC\Launchpad Studio\_sorgente" && python assemble.py
-cd "C:\Users\panco\AppData\Local\Temp\claude\d--MUSIC-Launchpad-Studio\f54e3e52-eb9c-4bcc-a37e-2616e0913a35\scratchpad"
+cd "<scratchpad>"
 for f in test_*.js; do node "$f" || echo "FAIL: $f"; done
 ```
 
@@ -591,7 +591,7 @@ Atteso: tutti e 4 PASS (correggi eventuali numeri di nota nel test come indicato
 
 ```
 cd "D:\MUSIC\Launchpad Studio\_sorgente" && python assemble.py
-cd "C:\Users\panco\AppData\Local\Temp\claude\d--MUSIC-Launchpad-Studio\f54e3e52-eb9c-4bcc-a37e-2616e0913a35\scratchpad"
+cd "<scratchpad>"
 for f in test_*.js; do node "$f" || echo "FAIL: $f"; done
 ```
 
@@ -864,7 +864,7 @@ Atteso: tutti e 5 PASS.
 
 ```
 cd "D:\MUSIC\Launchpad Studio\_sorgente" && python assemble.py
-cd "C:\Users\panco\AppData\Local\Temp\claude\d--MUSIC-Launchpad-Studio\f54e3e52-eb9c-4bcc-a37e-2616e0913a35\scratchpad"
+cd "<scratchpad>"
 for f in test_*.js; do node "$f" || echo "FAIL: $f"; done
 ```
 Presta particolare attenzione a `test_trim.js`, `test_copy_paste_clip.js`, `test_loadfile_mode.js`, `test_bank_smooth.js` — sono i test più a rischio di regressione da questo task (molti call site toccati).
@@ -1026,7 +1026,7 @@ Atteso: tutti e 3 PASS.
 
 ```
 cd "D:\MUSIC\Launchpad Studio\_sorgente" && python assemble.py
-cd "C:\Users\panco\AppData\Local\Temp\claude\d--MUSIC-Launchpad-Studio\f54e3e52-eb9c-4bcc-a37e-2616e0913a35\scratchpad"
+cd "<scratchpad>"
 for f in test_*.js; do node "$f" || echo "FAIL: $f"; done
 ```
 
@@ -1197,7 +1197,7 @@ Atteso: tutti e 3 PASS.
 
 ```
 cd "D:\MUSIC\Launchpad Studio\_sorgente" && python assemble.py
-cd "C:\Users\panco\AppData\Local\Temp\claude\d--MUSIC-Launchpad-Studio\f54e3e52-eb9c-4bcc-a37e-2616e0913a35\scratchpad"
+cd "<scratchpad>"
 for f in test_*.js; do node "$f" || echo "FAIL: $f"; done
 ```
 Il cambiamento a `harness.js` (Step 1) è infrastrutturale e condiviso da tutta la suite: verifica con particolare attenzione che nessun test preesistente che usa `classList.toggle`/`.contains` (es. `test_bank_midi.js`, `test_undo.js`) si comporti diversamente da prima.
@@ -1381,7 +1381,7 @@ Atteso: tutti e 4 PASS.
 
 ```
 cd "D:\MUSIC\Launchpad Studio\_sorgente" && python assemble.py
-cd "C:\Users\panco\AppData\Local\Temp\claude\d--MUSIC-Launchpad-Studio\f54e3e52-eb9c-4bcc-a37e-2616e0913a35\scratchpad"
+cd "<scratchpad>"
 for f in test_*.js; do node "$f" || echo "FAIL: $f"; done
 ```
 Presta particolare attenzione a `test_save_load.js`, `test_multibank_save.js`, `test_autosave.js`, `test_undo.js`, `test_undo_coverage.js`.
@@ -1423,7 +1423,7 @@ Atteso: `match: true`.
 - [ ] **Step 2: Suite di regressione completa (vecchi + nuovi test)**
 
 ```
-cd "C:\Users\panco\AppData\Local\Temp\claude\d--MUSIC-Launchpad-Studio\f54e3e52-eb9c-4bcc-a37e-2616e0913a35\scratchpad"
+cd "<scratchpad>"
 for f in test_*.js; do node "$f" || echo "FAIL: $f"; done
 ```
 Atteso: nessuna riga `FAIL:`.

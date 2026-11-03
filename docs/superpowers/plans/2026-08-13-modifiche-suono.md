@@ -60,7 +60,7 @@ Crea `<scratchpad>/probe_soundtouch_api.js`:
 'use strict';
 const fs = require('fs');
 const vm = require('vm');
-const src = fs.readFileSync('C:/Users/panco/Launchpad Studio/_sorgente/soundtouch-vendor.js', 'utf8');
+const src = fs.readFileSync('./_sorgente/soundtouch-vendor.js', 'utf8');
 const sandbox = { window: {}, console };
 vm.createContext(sandbox);
 vm.runInContext(src, sandbox);
@@ -87,7 +87,7 @@ Crea `<scratchpad>/test_time_stretch_engine.js`:
 const assert = require('assert');
 const { runWithApp } = require('./harness.js');
 const fs = require('fs');
-const SOUNDTOUCH_SRC = fs.readFileSync('C:/Users/panco/Launchpad Studio/_sorgente/soundtouch-vendor.js', 'utf8');
+const SOUNDTOUCH_SRC = fs.readFileSync('./_sorgente/soundtouch-vendor.js', 'utf8');
 
 async function testTempoFactorAboveOneShrinksDuration(){
   const sb = await runWithApp(SOUNDTOUCH_SRC + `
@@ -1052,7 +1052,7 @@ Crea `<scratchpad>/test_sound_mods_persistence.js`:
 const assert = require('assert');
 const fs = require('fs');
 const { runWithApp } = require('./harness.js');
-const GENRE_UI_SRC = fs.readFileSync('C:/Users/panco/Launchpad Studio/_sorgente/genre_ui.js', 'utf8');
+const GENRE_UI_SRC = fs.readFileSync('./_sorgente/genre_ui.js', 'utf8');
 
 const FAKE_GENRES = { G1: { bpm: 120, clips: [
   { r: 0, c: 0, name: 'Kick_01', mime: 'audio/webm', data: 'AAAA', mode: 'loop', trimStart: 0, trimEnd: null },

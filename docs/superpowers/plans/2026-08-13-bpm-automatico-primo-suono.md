@@ -18,7 +18,7 @@
 - `clipRate(clip)` diventa `return (clip && clip.sourceBpm) ? bpm/clip.sourceBpm : 1;` — nessuna dipendenza da `syncBpm`.
 - Il checkbox **"Sync BPM"** (`#syncBpm`) resta nel DOM/JS invariato (variabile, handler, serializzazione in autosave/set) ma la sua `<label>` prende `display:none` — stessa convenzione gia' usata per Gain/Choke in questo progetto (nascosto, non cancellato).
 - Ogni file sorgente modificato vive in `_sorgente/`: dopo ogni task che tocca `_sorgente/launchpad-studio.html` o `_sorgente/genre_ui.js`, ricostruire il file finale con `python assemble.py` (eseguito da dentro `_sorgente/`, produce `../Launchpad Studio.html`) prima di qualunque verifica in Chrome vero.
-- I test usano l'harness esistente `runWithApp` da `C:\Users\panco\AppData\Local\Temp\claude\d--MUSIC-Launchpad-Studio\f54e3e52-eb9c-4bcc-a37e-2616e0913a35\scratchpad\harness.js` (gia' presente, non va ricreato). I file di test vanno scritti in quella stessa cartella scratchpad (mai nel repository) e lanciati con `node <nome-test>.js` da li'.
+- I test usano l'harness esistente `runWithApp` da `<scratchpad>\harness.js` (gia' presente, non va ricreato). I file di test vanno scritti in quella stessa cartella scratchpad (mai nel repository) e lanciati con `node <nome-test>.js` da li'.
 - Dopo l'ultimo task, verificare in Chrome vero via Playwright (`playwright-core`, gia' installato in scratchpad con `executablePath: 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe'`) prima di considerare il lavoro concluso — la sospensione fake-DOM dell'harness non basta per un cambiamento che tocca sia audio (scheduling) sia UI.
 
 ---

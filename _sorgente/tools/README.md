@@ -9,7 +9,7 @@ ora basta rilanciarli.
 
 **Precondizione:** i pacchetti audio Novation Anniversary (1st/2nd/3rd Drop)
 devono essere disponibili in una cartella locale (di default
-`C:\Users\panco\OneDrive\Desktop\music` — già sincronizzata su OneDrive,
+`<cartella-loop>` — già sincronizzata su OneDrive,
 quindi al sicuro anche se questo PC ha un problema). Se sono altrove, imposta
 la variabile d'ambiente `LPSTUDIO_MUSIC_ROOT`.
 
